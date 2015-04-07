@@ -64,7 +64,36 @@ function Get-JujuServiceName {
 }
 
 function Is-JujuMasterUnit {
-    return ((Get-JujuLocalUnit).Split("/")[1] -eq '0')
+    Param(
+        [string]$PeerRelationName
+    )
+
+    if (!$PeerRelationName) {
+        return ((Get-JujuLocalUnit).Split("/")[1] -eq '0')
+    }
+
+    $rids = Get-JujuRelationIds -RelType $PeerRelationName
+    if ($rids -eq $false) {
+        Write-JujuError "ERROR: Cannot retrieve peer relation ids."
+    }
+    $unitName = (Get-JujuLocalUnit).Split('/')[0]
+    $localUnitId = [int](Get-JujuLocalUnit).Split('/')[1]
+    $unitsIds = @($localUnitId)
+    foreach ($rid in $rids) {
+        $units = Get-JujuRelatedUnits -RelId $rid
+        if ($units -eq $false) {
+            Write-JujuError "ERROR: Cannot retrieve peer units ids."
+        }
+        if ($units.Count -eq 0) {
+            # no peers deployed
+            continue
+        }
+        $unitsIds += $units | % { [int]$_.Split('/')[1] }
+    }
+    $unitsIds = $unitsIds | Sort-Object
+    $jujuMasterUnit = $unitName + "/" + $unitsIds[0]
+
+    return ((Get-JujuLocalUnit) -eq $jujuMasterUnit)
 }
 
 function Execute-Command {
