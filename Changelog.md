@@ -1,3 +1,10 @@
+###version 0.12
+  - 20.04.2015
+  - Added ``Windows::Get-WindowsUser``
+  - Refactored ``Windows::Create-LocalAdmin``
+  - Refactored ``Windows::Add-WindowsUser``
+  - Refactored ``Windows::Delete-WindowsUser``
+
 ###version 0.11
   - 06.04.2015
   - Improved ``Juju::Is-JujuMasterUnit`` logic.
