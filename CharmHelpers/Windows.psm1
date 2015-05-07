@@ -253,6 +253,21 @@ function Get-CharmState {
     }
 }
 
+function Get-WindowsUser {
+    Param(
+        [parameter(Mandatory=$true)]
+        [string]$Username
+    )
+
+    $existentUser = Get-WmiObject -Class "Win32_Account" `
+                                  -Filter "Name = '$Username'"
+    if ($existentUser -eq $null) {
+        Write-JujuLog "User not found."
+    }
+
+    return $existentUser
+}
+
 function Create-LocalAdmin {
     param(
         [Parameter(Mandatory=$true)]
@@ -261,34 +276,18 @@ function Create-LocalAdmin {
         [string]$LocalAdminPassword
     )
 
-    $existentUser = Get-WmiObject -Class Win32_Account `
-                                  -Filter "Name = '$LocalAdminUsername'"
-    if ($existentUser -eq $null) {
-        $computer = [ADSI]"WinNT://$env:computername"
-        $localAdmin = $computer.Create("User", $LocalAdminUsername)
-        $localAdmin.SetPassword($LocalAdminPassword)
-        $localAdmin.SetInfo()
-        $LocalAdmin.FullName = $LocalAdminUsername
-        $LocalAdmin.SetInfo()
-        # UserFlags = Logon script | Normal user | No pass expiration
-        $LocalAdmin.UserFlags = 1 + 512 + 65536
-        $LocalAdmin.SetInfo()
-    } else {
-        Execute-ExternalCommand -Command {
-            net.exe user $LocalAdminUsername $LocalAdminPassword
-        } -ErrorMessage "Failed to create new user"
-    }
+    Add-WindowsUser $LocalAdminUsername $LocalAdminPassword
 
     $localAdmins = Execute-ExternalCommand -Command {
         net.exe localgroup Administrators
-    } -ErrorMessage "Failed to get local administrators"
+    } -ErrorMessage "Failed to get local administrators."
 
     # Assign user to local admins groups if he isn't there
     $isLocalAdmin = ($localAdmins -match $LocalAdminUsername) -ne 0
     if ($isLocalAdmin -eq $false) {
         Execute-ExternalCommand -Command {
             net.exe localgroup Administrators $LocalAdminUsername /add
-        } -ErrorMessage "Failed to add user to local admins group"
+        } -ErrorMessage "Failed to add user to local admins group."
     }
 }
 
@@ -300,9 +299,24 @@ function Add-WindowsUser {
         [string]$Password
     )
 
-    Execute-ExternalCommand -Command {
-        NET.EXE USER $Username $Password '/ADD'
-    } -ErrorMessage "Failed to create new user"
+    $existentUser = Get-WindowsUser $Username
+    if ($existentUser -eq $null) {
+        $computer = [ADSI]"WinNT://$env:computername"
+        $user = $computer.Create("User", $Username)
+        $user.SetPassword($Password)
+        $user.SetInfo()
+        $user.FullName = $Username
+        $user.SetInfo()
+        # UserFlags = Logon script | Normal user | No pass expiration
+        $user.UserFlags = 1 + 512 + 65536
+        $user.SetInfo()
+    } else {
+        Execute-ExternalCommand -Command {
+            $computername = hostname.exe
+            $user = [ADSI] "WinNT://$computerName/$Username,User"
+            $user.SetPassword($Password)
+        } -ErrorMessage "Failed to update user password."
+    }
 }
 
 function Delete-WindowsUser {
@@ -313,7 +327,7 @@ function Delete-WindowsUser {
 
     Execute-ExternalCommand -Command {
         NET.EXE USER $Username '/DELETE'
-    } -ErrorMessage "Failed to create new user"
+    } -ErrorMessage "Failed to delete user."
 }
 
 Export-ModuleMember -Function *

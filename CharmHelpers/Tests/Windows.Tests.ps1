@@ -322,6 +322,93 @@ InModuleScope $moduleName {
             }
         }
     }
+
+    Describe "Get-WindowsUser" {
+        Context "User exists" {
+            $fakeUsername = "fakeUsername"
+            $fakeUser = "fakeUser"
+
+            Mock Get-WmiObject { return $fakeUser } -Verifiable
+            Mock Write-JujuLog { return } -Verifiable
+
+            $user = Get-WindowsUser $fakeUsername
+
+            It "should return the user" {
+                $user | Should Be $fakeUser
+            }
+
+            It "should call all methods" {
+                Assert-MockCalled Get-WmiObject -Exactly 1 `
+                    -ParameterFilter { $Class -eq "Win32_Account" }
+                Assert-MockCalled Write-JujuLog -Exactly 0
+            }
+        }
+    }
+
+    Describe "Create-LocalAdmin" {
+        Context "User is not admin" {
+            $fakeUsername = "fakeUsername"
+            $localAdmins = "localAdmins"
+            $fakePassword = "fakePassword"
+
+            Mock Add-WindowsUser { return } -Verifiable
+            Mock Execute-ExternalCommand  { return $localAdmins } -Verifiable
+
+            Create-LocalAdmin $fakeUsername $fakePassword
+
+            It "should call all methods" {
+                Assert-MockCalled Add-WindowsUser -Exactly 1
+                Assert-MockCalled Execute-ExternalCommand -Exactly 2
+            }
+        }
+
+        Context "User is admin" {
+            $fakeUsername = "localAdmins"
+            $localAdmins = "localAdmins"
+            $fakePassword = "fakePassword"
+
+            Mock Add-WindowsUser { return } -Verifiable
+            Mock Execute-ExternalCommand  { return $localAdmins } -Verifiable
+
+            Create-LocalAdmin $fakeUsername $fakePassword
+
+            It "should call all methods" {
+                Assert-MockCalled Add-WindowsUser -Exactly 1
+                Assert-MockCalled Execute-ExternalCommand -Exactly 1
+            }
+        }
+    }
+
+    Describe "Add-WindowsUser" {
+        Context "User exists" {
+            $fakeUsername = "fakeUsername"
+            $fakeUser = "fakeUser"
+            $fakePassword = "fakePassword"
+
+            Mock Get-WindowsUser { return $fakeUser } -Verifiable
+            Mock Execute-ExternalCommand  { return } -Verifiable
+
+            Add-WindowsUser $fakeUsername $fakePassword
+
+            It "should call all methods" {
+                Assert-MockCalled Execute-ExternalCommand -Exactly 1
+            }
+        }
+    }
+
+    Describe "Delete-WindowsUser" {
+        Context "success" {
+            $fakeUser = "fakeUser"
+
+            Mock Execute-ExternalCommand  { return $fakeUser } -Verifiable
+
+            Delete-WindowsUser $fakeUser
+
+            It "should call all methods" {
+                Assert-MockCalled Execute-ExternalCommand -Exactly 1
+            }
+        }
+    }
 }
 
 Remove-Module $moduleName
