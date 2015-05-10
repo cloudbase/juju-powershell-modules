@@ -253,6 +253,21 @@ function Get-CharmState {
     }
 }
 
+function Remove-CharmState {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$CharmName,
+        [Parameter(Mandatory=$true)]
+        [string]$Key
+    )
+
+    $keyPath = Get-CharmStateFullKeyPath
+    $fullKey = ($CharmName + $Key)
+    if (Get-CharmState $CharmName $Key) {
+        Remove-ItemProperty -Path $keyPath -Name $fullKey
+    }
+}
+
 function Get-WindowsUser {
     Param(
         [parameter(Mandatory=$true)]

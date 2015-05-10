@@ -1,3 +1,7 @@
+###version 0.13
+  - 10.05.2015
+  - Added ``Windows::Remove-CharmState``
+
 ###version 0.12
   - 20.04.2015
   - Added ``Windows::Get-WindowsUser``
