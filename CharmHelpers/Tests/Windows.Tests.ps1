@@ -409,6 +409,34 @@ InModuleScope $moduleName {
             }
         }
     }
+
+    Describe "Remove-CharmState" {
+        Mock Get-CharmStateFullKeyPath { return "FakeKeyPath" }
+        Mock Get-CharmState { return $stateExists }
+        Mock Remove-ItemProperty { }
+        Context "Charm state exists" {
+            $stateExists = $true
+
+            Remove-CharmState "FakeCharmName" "FakeCharmState"
+
+            It "should call all mocked functions" {
+                Assert-MockCalled Get-CharmStateFullKeyPath -Exactly 1
+                Assert-MockCalled Get-CharmState -Exactly 1
+                Assert-MockCalled Remove-ItemProperty -Exactly 1
+            }
+        }
+        Context "Charm state doesn't exist" {
+            $stateExists = $false
+
+            Remove-CharmState "FakeCharmName" "FakeCharmState"
+
+            It "should call all mocked functions" {
+                Assert-MockCalled Get-CharmStateFullKeyPath -Exactly 1
+                Assert-MockCalled Get-CharmState -Exactly 1
+                Assert-MockCalled Remove-ItemProperty -Exactly 0
+            }
+        }
+    }
 }
 
 Remove-Module $moduleName
