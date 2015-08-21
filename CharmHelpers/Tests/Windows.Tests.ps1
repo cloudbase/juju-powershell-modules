@@ -358,7 +358,7 @@ InModuleScope $moduleName {
 
             It "should call all methods" {
                 Assert-MockCalled Add-WindowsUser -Exactly 1
-                Assert-MockCalled Execute-ExternalCommand -Exactly 2
+                Assert-MockCalled Execute-ExternalCommand -Exactly 1
             }
         }
 

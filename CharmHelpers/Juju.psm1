@@ -73,8 +73,14 @@ function Is-JujuMasterUnit {
     }
 
     $rids = Get-JujuRelationIds -RelType $PeerRelationName
-    if ($rids -eq $false) {
-        Write-JujuError "ERROR: Cannot retrieve peer relation ids."
+    if (!$rids) {
+        # If there are no peer relation ids, then it means the charm has not
+        # completed executing the install/config-changed hooks
+        # Only the first unit will have the peer relation ids available,
+        # which is enough to consider it as master.
+        Write-JujuError "ERROR: Cannot retrieve peer relation ids." `
+            -Fatal $false
+        return $false
     }
     $unitName = (Get-JujuLocalUnit).Split('/')[0]
     $localUnitId = [int](Get-JujuLocalUnit).Split('/')[1]
@@ -174,7 +180,7 @@ function Set-JujuRelation {
         $cmd += $Relation_Id
     }
     foreach ($i in $Relation_Settings.GetEnumerator()) {
-       $cmd += $i.Name + "=" + $i.Value
+       $cmd += $i.Name + "='" + $i.Value + "'"
     }
     try {
         return Execute-Command $cmd
@@ -368,6 +374,7 @@ function Get-JujuRelationParams {
                     $ctx[$key] = Get-JujuRelation -attr $relationMap[$key] `
                                  -rid $rid -unit $unit
                 }
+                $ctx["context"] = $true
                 $ctx["context"] = Check-ContextComplete -ctx $ctx
                 if ($ctx["context"]) {
                     return $ctx
@@ -378,13 +385,10 @@ function Get-JujuRelationParams {
                 $ctx[$key] = Get-JujuRelation -attr $relationMap[$key] `
                              -rid $rid
             }
-            $ctx["context"] = Check-ContextComplete -ctx $ctx
-            if ($ctx["context"]) {
-                return $ctx
-            }
         }
     }
 
+    $ctx["context"] = Check-ContextComplete -ctx $ctx
     return $ctx
 }
 
@@ -658,6 +662,70 @@ function Close-JujuPort {
     } else {
         Write-JujuLog "Port $port already closed. Skipping..."
     }
+}
+
+function Is-Leader {
+    $cmd = @("is-leader.exe", "--format=json")
+    try {
+        return Execute-Command -Cmd $cmd | ConvertFrom-Json
+    } catch {
+        Write-JujuError "Failed to run is-leader.exe"
+    }
+}
+
+function Set-LeaderData {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Hashtable]$params
+    )
+
+    $cmd = @("leader-set.exe")
+
+    foreach ($i in $params.GetEnumerator()) {
+       $cmd += $i.Name + "=" + $i.Value
+    }
+    try {
+        return Execute-Command $cmd
+    } catch {
+        return $false
+    }
+
+    return $false
+}
+
+function Get-LeaderData {
+    Param(
+        [string]$Attr=$null
+    )
+
+    $cmd = @("leader-get.exe", "--format=json")
+    if ($Attr) {
+        $cmd += $Attr
+    }
+    try {
+        return Execute-Command -Cmd $cmd | ConvertFrom-Json
+    } catch {
+        return $false
+    }
+}
+
+function Get-JujuRemoteUnitRelation {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Hashtable]$relationMap
+    )
+
+    $ctx = @{ }
+    $rid = Get-JujuRelationId
+    $unit = Get-JujuRemoteUnit
+    foreach ($key in $relationMap.Keys) {
+        $ctx[$key] = Get-JujuRelation -attr $relationMap[$key] `
+                     -rid $rid -unit $unit
+    }
+    $ctx["context"] = $true
+    $ctx["context"] = Check-ContextComplete -ctx $ctx
+
+    return $ctx
 }
 
 Export-ModuleMember -Function *

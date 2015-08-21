@@ -347,7 +347,7 @@ InModuleScope $moduleName {
             $fakeCmd = @("relation-set.exe",
                        "-r",
                        $fakeRelationId,
-                       "relation-setting=relt")
+                       "relation-setting='relt'")
             Mock Execute-Command { return $fakeResult } -Verifiable
 
             $result = Set-JujuRelation $fakeRelationId $fakeRelationSettings

@@ -340,7 +340,7 @@ function Renew-PSSessionPath () {
 
 function Marshall-Object {
     Param(
-        [string]$obj
+        $obj
     )
 
     $encoded = $obj | ConvertTo-Json
@@ -350,7 +350,7 @@ function Marshall-Object {
 
 function Unmarshall-Object {
     Param(
-        [string]$obj
+        $obj
     )
     $decode = ConvertFrom-Base64 $obj
     $ret = $decode | ConvertFrom-Json
