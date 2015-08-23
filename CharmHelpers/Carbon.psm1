@@ -864,8 +864,19 @@ successfully.
 #>
 
 function Generate-StrongPassword {
-    $password = (Get-RandomPassword 15) + "^"
-    return $password
+    $maxRetries = 10
+    $retries = 0
+    while ($retries -lt $maxRetries) {
+        $password = (Get-RandomPassword 15) + "^"
+        if (($password -cmatch '[\p{Ll}]' -or $password -cmatch '[\p{Lu}]') `
+                -and $password -cmatch '[\p{Nd}]' `
+                -and $password -cmatch '[^\p{Ll}\p{Lu}\p{Nd}]' `
+                -and $password -cnotmatch '\s') {
+            return $password
+        }
+        $retries = $retries + 1
+    }
+    throw "Failed to generate strong password"
 }
 
 

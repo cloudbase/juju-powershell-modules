@@ -70,15 +70,20 @@ function Is-ComponentInstalled {
 }
 
 function Get-JujuUnitName {
-   $jujuUnitName = ${env:JUJU_UNIT_NAME}.split('/')
-    if ($jujuUnitName[0].Length -ge 15) {
-        $jujuName = $jujuUnitName[0].substring(0, 12)
-    } else {
-        $jujuName = $jujuUnitName[0]
+    $jujuUnitNameNumber = (Get-JujuLocalUnit).split('/')
+    $jujuUnitName = ($jujuUnitNameNumber[0]).ToString()
+    $jujuUnitNumber = ($jujuUnitNameNumber[1]).ToString()
+    if (!$jujuUnitName -or !$jujuUnitNumber) {
+        Write-JujuError "Failed to get unit name and number" -Fatal $true
     }
-    $newHostname = $jujuName + $jujuUnitName[1]
+    $maxUnitNameLength = 15 - ($jujuUnitName.Length + $jujuUnitNumber.Length)
+    if ($maxUnitNameLength -lt 0) {
+        $jujuUnitName = $jujuUnitName.substring(0, ($jujuUnitName.Length + $maxUnitNameLength))
+    }
+    $newHostname = $jujuUnitName + $jujuUnitNumber
     return $newHostname
 }
+
 
 function Rename-Hostname {
     $newHostname = Get-JujuUnitName
@@ -283,6 +288,39 @@ function Get-WindowsUser {
     return $existentUser
 }
 
+
+function Convert-SIDToFriendlyName {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$SID
+    )
+
+    $objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
+    $objUser = $objSID.Translate( [System.Security.Principal.NTAccount])
+    $name = $objUser.Value
+    $n = $name.Split("\")
+    if ($n.length -gt 1){
+        return $n[1]
+    }
+    return $n[0]
+}
+
+function Check-Membership {
+    Param (
+        [Parameter(Mandatory=$true)]
+        [string]$User,
+        [Parameter(Mandatory=$true)]
+        [string]$GroupSID
+    )
+
+    $group = Get-CimInstance -ClassName Win32_Group  `
+                -Filter "SID = '$GroupSID'"
+    $ret = Get-CimAssociatedInstance -InputObject $group `
+          -ResultClassName Win32_UserAccount | Where-Object `
+                                               { $_.Name -eq $User }
+    return $ret
+}
+
 function Create-LocalAdmin {
     param(
         [Parameter(Mandatory=$true)]
@@ -293,16 +331,15 @@ function Create-LocalAdmin {
 
     Add-WindowsUser $LocalAdminUsername $LocalAdminPassword
 
-    $localAdmins = Execute-ExternalCommand -Command {
-        net.exe localgroup Administrators
-    } -ErrorMessage "Failed to get local administrators."
-
-    # Assign user to local admins groups if he isn't there
-    $isLocalAdmin = ($localAdmins -match $LocalAdminUsername) -ne 0
-    if ($isLocalAdmin -eq $false) {
+    $administratorsGroupSID = "S-1-5-32-544"
+    $isLocalAdmin = Check-Membership $LocalAdminUsername $administratorsGroupSID
+    $groupName = Convert-SIDToFriendlyName -SID $administratorsGroupSID
+    if (!$isLocalAdmin) {
         Execute-ExternalCommand -Command {
-            net.exe localgroup Administrators $LocalAdminUsername /add
+            net.exe localgroup $groupName $LocalAdminUsername /add
         } -ErrorMessage "Failed to add user to local admins group."
+    } else {
+        Juju-Log "User is already in the administrators group."
     }
 }
 
