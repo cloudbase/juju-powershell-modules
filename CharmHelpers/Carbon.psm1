@@ -879,5 +879,35 @@ function Generate-StrongPassword {
     throw "Failed to generate strong password"
 }
 
+function Run-PSProcessAsUser {
+    param(
+        [Parameter(Mandatory=$true)]
+        [Hashtable]$params,
+        [Parameter(Mandatory=$true)]
+        [string]$powershellusername,
+        [Parameter(Mandatory=$true)]
+        [string]$powershellpassword,
+        [Parameter(Mandatory=$true)]
+        [string]$PSFilePath
+    )
+    Write-JujuLog "Open powershell as $powershellusername"
+
+    $securePassword = ConvertTo-SecureString -force `
+                      -AsPlainText $powershellpassword
+    $psCredential = New-Object PSCredential($powershellusername, `
+                                            $securePassword)
+
+    $argString = Get-PSStringParamsFromHashtable $params
+    $arg = " -File $PSFilePath $argString "
+
+    $exitCode = Start-ProcessAsUser -Command "$PShome\powershell.exe" `
+                                    -Arguments $arg `
+                                    -Credential $psCredential `
+                                    -LoadUserProfile $false
+
+    if ($exitCode -ne 0) {
+        throw "Failed to start powershell process"
+    }
+}
 
 Export-ModuleMember -Function *

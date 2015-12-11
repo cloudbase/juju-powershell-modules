@@ -277,6 +277,47 @@ function Check-FileIntegrityWithSHA1 {
     }
 }
 
+function Get-DependenciesDownloadLinks {
+    [Parameter(Mandatory=$true)]
+    param ($DownloadLinks)
+
+    return $DownloadLinks.Split(";")
+}
+
+# the download information for a file resource can be sent as
+# description|http://example.com/download.exe#sha1-hash
+function Get-DownloadLinkMetadata {
+    [Parameter(Mandatory=$true)]
+    param ($DownloadLink)
+
+    $metadata = @{
+        "description" = "";
+        "uri" = "";
+        "sha1" = "";
+        "file" = "";
+    }
+
+    $descriptionParts = $DownloadLink.Split("|")
+    if ($descriptionParts.Count -eq 2) {
+        $metadata["description"] = $descriptionParts[0]
+        $uriParts = $descriptionParts[1]
+    } else {
+        $uriParts = $DownloadLink
+    }
+
+    $hashParts = $uriParts.Split("#")
+    if ($hashParts.Count -eq 2) {
+        $metadata["sha1"] = $hashParts[1]
+        $metadata["uri"] = $hashParts[0]
+    } else {
+        $metadata["uri"] = $uriParts
+    }
+
+    $metadata["file"] = Split-Path $metadata["uri"] -Leaf
+
+    return $metadata
+}
+
 function Download-File ($DownloadLink, $DestinationFile, $ExpectedSHA1Hash) {
     $webClient = New-Object System.Net.WebClient
 
@@ -286,9 +327,15 @@ function Download-File ($DownloadLink, $DestinationFile, $ExpectedSHA1Hash) {
     }
 
     ExecuteWith-Retry -Command {
-        #It will overwrite any existent file
-        $webClient.DownloadFile($DownloadLink, $DestinationFile)
-    }
+        # test if DownloadLink a samba share path or a local path
+        if (Test-Path $DownloadLink) {
+            Copy-Item -Path $DownloadLink -Destination $DestinationFile `
+                -Force -Recurse
+        } else {
+                #It will overwrite any existent file
+                $webClient.DownloadFile($DownloadLink, $DestinationFile)
+        }
+    } -MaxRetryCount 5 -RetryInterval 30
 
     if($ExpectedSHA1Hash) {
         Check-FileIntegrityWithSHA1 $DestinationFile $ExpectedSHA1Hash
@@ -410,6 +457,41 @@ function Set-IniFileValue {
             throw ("Cannot set value in ini file: " + $lastError)
         }
     }
+}
+
+function Get-CmdStringFromHashtable {
+    param(
+        [Parameter(Mandatory=$true)]
+        [Hashtable]$params
+    )
+
+    $args = ""
+    foreach($i in $params.GetEnumerator()) {
+        $args += $i.key + "=" + $i.value + " "
+    }
+
+    return $args
+}
+
+function Escape-QuoteInString {
+    param(
+        [string]$value
+    )
+    return "'" + $value.Replace("'", "''") + "'"
+}
+
+function Get-PSStringParamsFromHashtable {
+    param(
+        [Parameter(Mandatory=$true)]
+        [Hashtable]$params
+    )
+
+    $args = ""
+    foreach($i in $params.GetEnumerator()) {
+        $args += ("-" + $i.key + " " + $i.value + " ")
+    }
+
+    return $args -join " "
 }
 
 Export-ModuleMember -Function *
