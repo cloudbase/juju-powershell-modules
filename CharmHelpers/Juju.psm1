@@ -627,7 +627,8 @@ function Is-JujuPortRangeOpen {
 function Open-JujuPort {
     Param(
         [Parameter(Mandatory=$true)]
-        [string]$port
+        [string]$port,
+        [bool]$Fatal=$true
     )
 
     $isOpen = Is-JujuPortRangeOpen $port
@@ -637,7 +638,7 @@ function Open-JujuPort {
             Execute-Command -Cmd $cmd
             Write-JujuLog "Port opened."
         } catch {
-            Write-JujuError "Failed to open port."
+            Write-JujuError "Failed to open port." -Fatal $Fatal
         }
     } else {
         Write-JujuLog "Port $port already opened. Skipping..."
@@ -726,6 +727,98 @@ function Get-JujuRemoteUnitRelation {
     $ctx["context"] = Check-ContextComplete -ctx $ctx
 
     return $ctx
+}
+
+function Write-JujuLogHashtable {
+    Param($Hashtable)
+
+    foreach ($key in $Hashtable.Keys) {
+        try {
+            if (($Hashtable[$key]).GetType().Name -eq "Hashtable") {
+                Write-JujuLogHashtable $Hashtable
+            }
+            Write-JujuLog "$key => $($Hashtable[$key])"
+        } catch {
+            Write-JujuLog "Failed to log $key."
+        }
+    }
+}
+
+function Set-JujuStatus {
+    Param(
+        [Parameter(Mandatory=$true)]
+        [ValidatePattern("^\w+$")]
+        [ValidateSet("maintenance", "blocked", "waiting", "active")]
+        [string]$Status=$null
+    )
+
+    $cmd = @("status-set.exe", $Status)
+    try {
+        if ((Get-JujuStatus) -ne $Status) {
+            return Execute-Command -Cmd $cmd
+        }
+    } catch {
+        return $false
+    }
+}
+
+function Get-JujuStatus {
+    $cmd = @("status-get.exe", "--format=json")
+    try {
+        $result = Execute-Command -Cmd $cmd | ConvertFrom-Json
+    } catch {
+        return $false
+    }
+
+    if ($result) {
+        return $result["status"]
+    }
+}
+
+function Get-JujuAction {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$ActionParam
+    )
+
+    $cmd = @("action-get.exe")
+    $cmd += $ActionParam
+    try {
+        return Execute-Command $cmd
+    } catch [Exception] {
+        return $false
+    }
+}
+
+function Set-JujuAction {
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$ActionParams
+    )
+
+    $cmd = @("action-set.exe")
+    $cmd += Get-CmdStringFromHashtable $ActionParams
+    try {
+        return Execute-Command $cmd
+    } catch [Exception] {
+        return $false
+    }
+}
+
+function Fail-JujuAction {
+    param(
+        [string]$message
+    )
+
+    $cmd = @("action-fail.exe")
+    if ($message) {
+        $cmd += Escape-QuoteInString $message
+    }
+    try {
+        return Execute-Command $cmd
+    } catch [Exception] {
+        return $false
+    }
 }
 
 Export-ModuleMember -Function *

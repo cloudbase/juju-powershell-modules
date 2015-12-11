@@ -199,7 +199,7 @@ function Get-CharmStateFullKeyPath () {
 }
 
 function Get-CharmStateKeyDir () {
-    return "HKLM:\SOFTWARE\Wow6432Node\"
+    return "HKLM:\SOFTWARE\"
 }
 
 function Get-CharmStateKeyName () {
@@ -380,6 +380,34 @@ function Delete-WindowsUser {
     Execute-ExternalCommand -Command {
         NET.EXE USER $Username '/DELETE'
     } -ErrorMessage "Failed to delete user."
+}
+
+function Open-Ports {
+    Param($ports)
+
+    $directions = @("Inbound", "Outbound")
+    try {
+        foreach ($protocol in $ports.Keys) {
+            foreach ($port in $ports[$protocol]) {
+                # due to bug https://bugs.launchpad.net/juju-core/+bug/1427770,
+                # there is no way to get the ports opened by other units on
+                # the same node, thus we can have colisions
+                Open-JujuPort -Port "$port/$protocol" -Fatal $false
+                foreach ($direction in $directions) {
+                    $ruleName = "Allow $direction Port $port/$protocol"
+                    if (!(Get-NetFirewallRule $ruleName `
+                            -ErrorAction SilentlyContinue)) {
+                        New-NetFirewallRule -DisplayName $ruleName `
+                            -Name $ruleName `
+                            -Direction $direction -LocalPort $port `
+                            -Protocol $protocol -Action Allow
+                    }
+                }
+            }
+        }
+    } catch {
+        Write-JujuError "Failed to open ports."
+    }
 }
 
 Export-ModuleMember -Function *
