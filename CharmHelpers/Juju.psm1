@@ -483,10 +483,7 @@ function Resolve-Address {
             return $Address
         }
         $ip = ExecuteWith-Retry {
-            ipconfig /flushdns | Out-Null
-            if($LASTEXITCODE){
-                Throw "Failed to flush DNS"
-            }
+            $return = Execute-Command -Command @("ipconfig", "/flushdns")
             $ip = ([system.net.dns]::GetHostAddresses($Address))[0].ipaddresstostring
             return $ip 
         }
@@ -510,325 +507,404 @@ function Get-JujuUnitPrivateIP {
     }
 }
 
-function Get-JujuRelationParams {
+function Get-JujuRelationContext{
+    <#
+    .SYNOPSIS
+     This function gets the context for a particular relation and returns a hashtable
+     with the requested values. If any of the values requested via the -RequiredContext
+     parameters is not set on the relation, an empty context is returned. This function
+     takes an all-or-nothing approach.
+    .PARAMETER Relation
+     The relation for which to get the context
+    .PARAMETER RequiredContext
+     A hashtable consisting of the required parameters
+    .EXAMPLE
+     $context = {
+        "private-address"=$null;
+        "hostname"=$null;
+        "username"=$null;
+     }
+     # Each key in the $context variable represents the name of the relation setting that
+     # we expect to find on $Relation. If relation-get returns nothing for that named parameter
+     # (private-address, hostname, username in our example), the resulting $ctx will be empty.
+     # If all parameters have values, the context is complete, and $ctx will hold all 3 parameters
+     # with associated value.
+     $ctx = Get-JujuRelationContext -Relation example -RequiredContext $context
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [string]$type,
+        [string]$Relation,
         [Parameter(Mandatory=$true)]
-        [Hashtable]$relationMap
+        [Hashtable]$RequiredContext
     )
-
-    $ctx = @{ }
-    $relations = Get-JujuRelationIds -reltype $type
-    foreach($rid in $relations){
-        $related_units = Get-JujuRelatedUnits -relid $rid
-        if (($related_units -ne $null) -and ($related_units.Count -gt 0)) {
-            foreach ($unit in $related_units) {
-                foreach ($key in $relationMap.Keys) {
-                    $ctx[$key] = Get-JujuRelation -attr $relationMap[$key] `
-                                 -rid $rid -unit $unit
+    PROCESS {
+        $relations = Get-JujuRelationIds -Relation $Relation
+        foreach($rid in $relations){
+            $related_units = Get-JujuRelatedUnits -RelationId $rid
+            if (($related_units -ne $null) -and ($related_units.Count -gt 0)) {
+                foreach ($unit in $related_units) {
+                    $ctx = @{}
+                    foreach ($key in $RequiredContext.Keys) {
+                        $ctx[$key] = Get-JujuRelation -attr $RequiredContext[$key] `
+                                     -rid $rid -unit $unit
+                    }
+                    $complete = Check-ContextComplete -Context $ctx
+                    if ($complete) {
+                        return $ctx
+                    }
                 }
-                $ctx["context"] = $true
-                $ctx["context"] = Check-ContextComplete -ctx $ctx
-                if ($ctx["context"]) {
-                    return $ctx
-                }
-            }
-        } else {
-            foreach ($key in $relationMap.Keys) {
-                $ctx[$key] = Get-JujuRelation -attr $relationMap[$key] `
-                             -rid $rid
             }
         }
+        return @{}
     }
+}
 
-    $ctx["context"] = Check-ContextComplete -ctx $ctx
-    return $ctx
+function Get-JujuRelationParams {
+    <#
+    .SYNOPSIS
+     This function gets the context for a particular relation and returns a hashtable
+     with the requested values.
+    .PARAMETER Relation
+     Relation name we need to querie
+    .PARAMETER RequiredContext
+     A hashtable of values that the relation must provide to be considered complete.
+    .NOTES
+     Do not use this function. It is Obsolete and also dangerous. It sets a field called "context"
+     which is of type boolean. If a relation sets this field as a different type, it will be clobbered
+     by this function.
+    #>
+    [Obsolete("This function is obsolete. Please use Get-JujuRelationContext")]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Alias("type")]
+        [string]$Relation,
+        [Parameter(Mandatory=$true)]
+        [Alias("relationMap")]
+        [Hashtable]$RequiredContext
+    )
+    PROCESS {
+        $ctx = Get-JujuRelationContext -Relation $Relation -RequiredContext $RequiredContext
+        if($ctx){
+            $ctx["context"] = $true
+        }else{
+            $ctx = @{"context"=$false;}
+        }
+        return $ctx
+    }
 }
 
 function Write-JujuLog {
+    <#
+    .SYNOPSIS
+     Write-JujuLog writes a line in the Juju log with the given log level
+    .PARAMETER LogLevel
+     LogLevel represents the logging level of the message
+    .PARAMETER Message
+     Message that is to get written to the log
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
         [string]$Message,
         [ValidateSet("TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")]
         [string]$LogLevel="INFO"
     )
-
-    $cmd = @("juju-log.exe")
-    if($LogLevel -eq "DEBUG") {
-        $cmd += "--debug"
-    }
-    $cmd += $Message
-    $cmd += @("-l", $LogLevel.ToUpper())
-    & $cmd[0] $cmd[1..$cmd.Length]
-    if($LASTEXITCODE) {
-        Throw "Failed to run juju-log.exe: $LASTEXITCODE"
+    PROCESS {
+        $cmd = @("juju-log.exe")
+        if($LogLevel -eq "DEBUG") {
+            $cmd += "--debug"
+        }
+        $cmd += $Message
+        $cmd += @("-l", $LogLevel.ToUpper())
+        $return = Execute-Command -Command $cmd
     }
 }
 
 function Write-JujuDebug {
+    <#
+    .SYNOPSIS
+     Helper function that writes a log message with DEBUG log level.
+    .PARAMETER Message
+     The message that is to get written to the log
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
         [string]$Message
     )
-
-    Write-JujuLog -Message $Message -LogLevel DEBUG
+    PROCESS {
+        Write-JujuLog -Message $Message -LogLevel DEBUG
+    }
 }
 
 function Write-JujuTrace {
+    <#
+    .SYNOPSIS
+     Helper function that writes a log message with TRACE log level.
+    .PARAMETER Message
+     The message that is to get written to the log
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
         [string]$Message
     )
-    Write-JujuLog -Message $Message -LogLevel TRACE
+    PROCESS {
+        Write-JujuLog -Message $Message -LogLevel TRACE
+    }
 }
 
 function Write-JujuInfo {
+    <#
+    .SYNOPSIS
+     Helper function that writes a log message with INFO log level.
+    .PARAMETER Message
+     The message that is to get written to the log
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
         [string]$Message
     )
-    Write-JujuLog -Message $Message -LogLevel INFO
+    PROCESS {
+        Write-JujuLog -Message $Message -LogLevel INFO
+    }
 }
 
 function Write-JujuWarning {
+    <#
+    .SYNOPSIS
+     Helper function that writes a log message with WARNING log level.
+    .PARAMETER Message
+     The message that is to get written to the log
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
         [string]$Message
     )
-
-    Write-JujuLog -Message $Message -LogLevel WARNING
+    PROCESS {
+        Write-JujuLog -Message $Message -LogLevel WARNING
+    }
 }
 
 function Write-JujuCritical {
+    <#
+    .SYNOPSIS
+     Helper function that writes a log message with CRITICAL log level.
+    .PARAMETER Message
+     The message that is to get written to the log
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
         [string]$Message
     )
-    Write-JujuLog -Message $Message -LogLevel CRITICAL
+    PROCESS {
+        Write-JujuLog -Message $Message -LogLevel CRITICAL
+    }
+}
+
+function Write-JujuErr {
+    <#
+    .SYNOPSIS
+     Helper function that writes a log message with ERROR log level.
+    .PARAMETER Message
+     The message that is to get written to the log
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$Message
+    )
+    PROCESS {
+        Write-JujuLog -Message $Msg -LogLevel ERROR
+    }
 }
 
 function Write-JujuError {
+    <#
+    .SYNOPSIS
+     Write an error level message to the juju log and optionally throw an exception using that same message.
+    .PARAMETER Message
+     Message to write to juju log
+    .PARAMETER Fatal
+     A boolean value that instructs the commandlet to throw an exception or not
+    .NOTES
+     Do not use this function. The recommended way of dealing with exceptions is to catch them in the hook itself.
+     Write your charm modules to only throw exceptions on fatal errors. Use try{}catch{} in your hook to log the actual
+     error.
+    #>
+    [Obsolete("This function is Obsolete. Please use Write-JujuErr")]
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [string]$Msg,
+        [Alias("Msg")]
+        [string]$Message,
         [bool]$Fatal=$true
     )
-
-    Write-JujuLog -Message $Msg -LogLevel ERROR
-    if ($Fatal) {
-        Throw $Msg
+    PROCESS {
+        Write-JujuLog -Message $Msg -LogLevel ERROR
+        if ($Fatal) {
+            Throw $Msg
+        }
     }
 }
 
 function ExitFrom-JujuHook {
+    <#
+    .SYNOPSIS
+     Please do not use this function. It is only present for backwards compatibility. It should never be used
+     in any charm code. Please use Execute-JujuReboot if you need to reboot the machine the charm is running on.
+    .PARAMETER WithReboot
+     When $true, it will run Execute-JujuReboot -Now, instead of exit 0.
+    #>
+    [Obsolete("This function is obsolete. Please use Execute-JujuReboot")]
+    [CmdletBinding()]
     Param(
         [switch]$WithReboot
     )
-
-    if ($WithReboot -eq $true) {
-        Execute-JujuReboot -Now
-    } else {
-        Exit-Basic 0
+    PROCESS {
+        if ($WithReboot -eq $true) {
+            Execute-JujuReboot -Now
+        }
+        exit 0
     }
 }
 
 function Execute-JujuReboot {
+    <#
+    .SYNOPSIS
+     Request that the machine should reboot. This particular feature heavily used when installing windows
+     features that require reboot. Juju has its own tool to signal all running units that a reboot is about
+     to happen, and will wait for any currently running hook to finish before acquiring the execution lock
+     and executing a reboot. It also waits for any running container to shutdown.
+    .PARAMETER Now
+     This parameter makes the Execute-JujuReboot commandlet to block until reboot is executed. It guarantees
+     that if executed with the -Now parameter, your script will not continue after that point. You should take
+     great care when using this option, as you might enter into a reboot loop.
+     Omitting this option will schedule a reboot at the end of the currently running hook.
+    .EXAMPLE
+
+     # Check if feature is installed
+     $isInstalled = Check-IfFeatureIsInstalled
+     if(!$isInstalled){
+        # Feature is not installed.
+        # Its important to suppress any automatic reboot from any commandlet. Rebooting
+        # a server while the hook is running will error out the hook.
+        $result = Install-FeatureThatRequiresReboot -Reboot:$False
+
+        # Some commandlets return a result that contains whether or not a reboot is required
+        # before changes take effect
+        if($result.RebootRequired){
+            # Only reboot if we absolutely have to.
+            Execute-JujuReboot -Now
+        }
+     }  
+    #>
     Param(
         [switch]$Now
     )
+    $cmd = @("juju-reboot.exe")
 
-    if ($Now -eq $true) {
-        juju-reboot.exe --now
-    } else {
-        juju-reboot.exe
+    if ($Now) {
+        $cmd += "--now"
     }
+    Execute-Command -Command $cmd
 }
 
-#Python/Bash like function aliases
+# TODO
 
-
-function charm_dir {
-    return Get-JujuCharmDir
-}
-
-function in_relation_hook {
-    return Has-JujuRelation
-}
-
-function relation_type {
-    return Get-JujuRelationType
-}
-
-function relation_id {
-    return Get-JujuRelationId
-}
-
-function local_unit {
-    return Get-JujuLocalUnit
-}
-
-function remote_unit {
-    return Get-JujuRemoteUnit
-}
-
-function service_name {
-    return Get-JujuServiceName
-}
-
-function is_master_unit {
-    return Is-JujuMasterUnit
-}
-
-function charm_config {
-    Param(
-        [string]$Scope=$null
-    )
-
-    return Get-JujuCharmConfig -Scope $Scope
-}
-
-function relation_get {
-    Param(
-        [string]$Attr=$null,
-        [string]$Unit=$null,
-        [string]$Rid=$null
-    )
-
-    return Get-JujuRelation -Attr $Attr -Unit $Unit -Rid $Rid
-}
-
-function relation_set {
-    Param(
-        [string]$Relation_Id=$null,
-        [Hashtable]$Relation_Settings=@{}
-    )
-
-    return Set-JujuRelation -Relation_Id $Relation_Id `
-                            -Relation_Settings $Relation_Settings
-}
-
-function relation_ids {
-    Param(
-        [string]$RelType=$null
-    )
-
-    return Get-JujuRelationIds -RelType $RelType
-}
-
-function related_units {
-    Param(
-        [string]$RelId=$null
-    )
-
-    return Get-JujuRelatedUnits -RelId $RelId
-}
-
-function relation_for_unit {
-    Param(
-        [string]$Unit=$null,
-        [string]$Rid=$null
-    )
-
-    return Get-JujuRelationForUnit -Unit $Unit -Rid $Rid
-}
-
-function relations_for_id {
-    Param(
-        [string]$RelId=$null
-    )
-
-    return Get-JujuRelationsForId -RelId $RelId
-}
-
-function relations_of_type {
-    Param(
-        [string]$RelType=$null
-    )
-
-    return Get-JujuRelationsOfType -RelType $RelType
-}
-
-function is_relation_made {
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Relation,
-        [string]$Keys='private-address'
-    )
-
-    return Is-JujuRelationCreated -Relation $Relation -Keys $Keys
-}
-
-function unit_get {
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Attr
-    )
-
-    return Get-JujuUnit -Attr $Attr
-}
-
-function unit_private_ip {
-    return Get-JujuUnitPrivateIP
-}
-
-
+# TODO(gabriel-samfira): Move this to separate module
 function Get-MainNetadapter {
-    Param()
-
-    $unit_ip = unit_private_ip
-    if (!$unit_ip) {
-        Throw "Failed to get unit IP"
-    }
-
-    $iface = Get-NetIPAddress | Where-Object `
-        { $_.IPAddress -match $unit_ip -and $_.AddressFamily -eq "IPv4" }
-    if ($iface) {
-        $ifaceAlias = $iface.InterfaceAlias
-        if ($ifaceAlias) {
-            return $ifaceAlias
-        } else {
-            Throw "Interface alias is null."
+    <#
+    .SYNOPSIS
+    Returns the interface alias of the primary network adapter. The primary network adapter in this
+    case is the NIC that has the IP address that juju is aware of, configured. So if the IP address
+    returned by Get-JujuUnitPrivateIP is configured on a NIC, that NIC is the primary one.
+    #>
+    [CmdletBinding()]
+    PROCESS {
+        $unit_ip = unit_private_ip
+        if (!$unit_ip) {
+            Throw "Failed to get unit IP"
         }
-    } else {
-        Throw "Failed to find primary interface."
+
+        $iface = Get-NetIPAddress | Where-Object `
+            { $_.IPAddress -match $unit_ip -and $_.AddressFamily -eq "IPv4" }
+        if ($iface) {
+            $ifaceAlias = $iface.InterfaceAlias
+            if ($ifaceAlias) {
+                return $ifaceAlias
+            } else {
+                Throw "Interface alias is null."
+            }
+        } else {
+            Throw "Failed to find primary interface."
+        }
     }
 }
 
 function Get-PrimaryAdapterDNSServers {
-    Param()
-
+    <#
+    .SYNOPSIS
+    Returns the DNS servers configured for the primary network adapter. See Get-MainNetadapter
+    for a definition of "primary network adapter"
+    #>
     $netAdapter = Get-MainNetadapter
     $dnsServers = (Get-DnsClientServerAddress -InterfaceAlias $netAdapter `
                   -AddressFamily IPv4).ServerAddresses
     return $dnsServers
 }
 
-function Is-JujuPortRangeOpen {
+function Check-JujuPortRangeOpen{
+    <#
+    .SYNOPSIS
+    Check if the given port or port range is open
+    .PARAMETER Port
+    The port or port range to check.
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [string]$port
+        [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
+        [string]$Port,
+
     )
-
-    $cmd = @("opened-ports.exe", "--format=json")
-    try {
+    PROCESS {
+        $cmd = @("opened-ports.exe", "--format=json")
         $openedPorts = Execute-Command $cmd | ConvertFrom-Json
-    } catch {
-        return $false
-    }
 
-    if (!$openedPorts) {
+        if (!$openedPorts) {
+            return $false
+        }
+        foreach ($i in $openedPorts) {
+            if ($i -eq $Port) {
+                return $true
+            }
+        }
         return $false
     }
-    if (!$port.Contains("/")) {
-        $port = "$port/tcp"
+}
+
+function Is-JujuPortRangeOpen {
+    <#
+    .SYNOPSIS
+    Obsolete. Please use Check-JujuPortRangeOpen
+    #>
+    [CmdletBinding()]
+    [Obsolete("This function is obsolete. Please use Check-JujuPortRangeOpen")]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
+        [string]$port,
+
+    )
+    PROCESS {
+        return (Check-JujuPortRangeOpen -Port $port)
     }
-    foreach ($i in $openedPorts) {
-        if ($i -eq $port) {
-            return $true
-        }
-    }
-    return $false
 }
 
 function Open-JujuPort {
@@ -1026,6 +1102,209 @@ function Fail-JujuAction {
     } catch [Exception] {
         return $false
     }
+}
+
+
+#Python/Bash like function aliases
+function charm_dir {
+    <#
+    .SYNOPSIS
+     Alias for Get-JujuCharmDir
+    #>
+    return Get-JujuCharmDir
+}
+
+function in_relation_hook {
+    <#
+    .SYNOPSIS
+     Alias for Has-JujuRelation
+    #>
+    return Has-JujuRelation
+}
+
+function relation_type {
+    <#
+    .SYNOPSIS
+     Alias for Get-JujuRelationType
+    #>
+    return Get-JujuRelationType
+}
+
+function relation_id {
+    <#
+    .SYNOPSIS
+     Alias for Get-JujuRelationId
+    #>
+    return Get-JujuRelationId
+}
+
+function local_unit {
+    <#
+    .SYNOPSIS
+     Alias for Get-JujuLocalUnit
+    #>
+    return Get-JujuLocalUnit
+}
+
+function remote_unit {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuRemoteUnit
+    #>
+    return Get-JujuRemoteUnit
+}
+
+function service_name {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuServiceName
+    #>
+    return Get-JujuServiceName
+}
+
+function is_master_unit {
+    <#
+    .SYNOPSIS
+    Alias for Is-JujuMasterUnit
+    #>
+    return Is-JujuMasterUnit
+}
+
+function charm_config {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuCharmConfig
+    #>
+    Param(
+        [string]$Scope=$null
+    )
+
+    return Get-JujuCharmConfig -Scope $Scope
+}
+
+function relation_get {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuRelation
+    #>
+    Param(
+        [string]$Attr=$null,
+        [string]$Unit=$null,
+        [string]$Rid=$null
+    )
+
+    return Get-JujuRelation -Attr $Attr -Unit $Unit -Rid $Rid
+}
+
+function relation_set {
+    <#
+    .SYNOPSIS
+    Alias for Set-JujuRelation
+    #>
+    Param(
+        [string]$Relation_Id=$null,
+        [Hashtable]$Relation_Settings=@{}
+    )
+
+    return Set-JujuRelation -Relation_Id $Relation_Id `
+                            -Relation_Settings $Relation_Settings
+}
+
+function relation_ids {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuRelationIds
+    #>
+    Param(
+        [string]$RelType=$null
+    )
+
+    return Get-JujuRelationIds -RelType $RelType
+}
+
+function related_units {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuRelatedUnits
+    #>
+    Param(
+        [string]$RelId=$null
+    )
+
+    return Get-JujuRelatedUnits -RelId $RelId
+}
+
+function relation_for_unit {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuRelationForUnit
+    #>
+    Param(
+        [string]$Unit=$null,
+        [string]$Rid=$null
+    )
+
+    return Get-JujuRelationForUnit -Unit $Unit -Rid $Rid
+}
+
+function relations_for_id {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuRelationsForId
+    #>
+    Param(
+        [string]$RelId=$null
+    )
+
+    return Get-JujuRelationsForId -RelId $RelId
+}
+
+function relations_of_type {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuRelationsOfType
+    #>
+    Param(
+        [string]$RelType=$null
+    )
+
+    return Get-JujuRelationsOfType -RelType $RelType
+}
+
+function is_relation_made {
+    <#
+    .SYNOPSIS
+    Alias for Is-JujuRelationCreated
+    #>
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$Relation,
+        [Obsolete("This parameter is no longer required.")]
+        [string]$Keys='private-address'
+    )
+
+    return Is-JujuRelationCreated -Relation $Relation -Keys $Keys
+}
+
+function unit_get {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuUnit
+    #>
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$Attr
+    )
+
+    return Get-JujuUnit -Attr $Attr
+}
+
+function unit_private_ip {
+    <#
+    .SYNOPSIS
+    Alias for Get-JujuUnitPrivateIP
+    #>
+    return Get-JujuUnitPrivateIP
 }
 
 Export-ModuleMember -Function *
