@@ -107,14 +107,14 @@ function Get-JujuServiceName {
 function Is-JujuMasterUnit {
     <#
     .SYNOPSIS
-     This function is deprecated and should not be used. Please use Is-Leader instead
+     This function is deprecated and should not be used. Please use Check-Leader instead
     #>
-    [Obsolete("This cmdlet is obsolete. Please use Is-Leader instead.")]
+    [Obsolete("This cmdlet is obsolete. Please use Check-Leader instead.")]
     [CmdletBinding()]
     Param(
         [string]$PeerRelationName
     )
-    return (Is-Leader)
+    return (Check-Leader)
 }
 
 function Execute-Command {
@@ -908,199 +908,315 @@ function Is-JujuPortRangeOpen {
 }
 
 function Open-JujuPort {
+    <#
+    .SYNOPSIS
+    Opens a port or a range of ports in the provider firewall.
+    .PARAMETER Port
+    TCP/UDP port or port range to open.
+    .EXAMPLE
+    # Open a TCP port range of 1024 to 2048
+
+    Open-JujuPort -Port 1024-2048/TCP
+
+    .EXAMPLE
+    # Open single UDP port
+
+    Open-JujuPort -Port 1024/UDP
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [string]$port,
+        [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
+        [string]$Port,
+        [Obsolete("This parameter is obsolete and will be removed in the future.")]
         [bool]$Fatal=$true
     )
-
-    $isOpen = Is-JujuPortRangeOpen $port
-    if (!$isOpen) {
+    PROCESS {
+        $isOpen = Check-JujuPortRangeOpen -Port $Port
+        if ($isOpen){
+            return $true
+        }
         $cmd = @("open-port.exe", $port)
         try {
-            Execute-Command -Cmd $cmd
-            Write-JujuLog "Port opened."
+            Execute-Command -Cmd $cmd | Out-Null
         } catch {
-            Write-JujuError "Failed to open port." -Fatal $Fatal
+            Write-JujuErr "Failed to open port $Port"
+            if($Fatal){
+                Throw
+            }
         }
-    } else {
-        Write-JujuLog "Port $port already opened. Skipping..."
     }
 }
 
 function Close-JujuPort {
+    <#
+    .SYNOPSIS
+    Closes a port or a range of ports in the provider firewall.
+    .PARAMETER Port
+    TCP/UDP port or port range to open.
+    .EXAMPLE
+    # Close the TCP port range 1024-2048
+
+    Close-JujuPort -Port 1024-2048/TCP
+
+    .EXAMPLE
+    # Close single UDP port
+
+    Close-JujuPort -Port 1024/UDP
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [string]$port
+        [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
+        [string]$Port
     )
-
-    $isOpen = Is-JujuPortRangeOpen $port
-    if ($isOpen) {
-        $cmd = @("close-port.exe", $port)
-        try {
-            Execute-Command -Cmd $cmd
-            Write-JujuLog "Port closed."
-        } catch {
-            Write-JujuError "Failed to close port."
+    PROCESS {
+        $isOpen = Check-JujuPortRangeOpen -Port $Port
+        if ($isOpen) {
+            Write-JujuInfo "Closing port $Port"
+            $cmd = @("close-port.exe", $port)
+            try {
+                Execute-Command -Command $cmd | Out-Null
+            } catch {
+                Write-JujuErr "Failed to close port."
+                Throw
+            }
         }
-    } else {
-        Write-JujuLog "Port $port already closed. Skipping..."
     }
 }
 
 function Is-Leader {
-    $cmd = @("is-leader.exe", "--format=json")
-    try {
-        return Execute-Command -Cmd $cmd | ConvertFrom-Json
-    } catch {
-        Write-JujuError "Failed to run is-leader.exe"
+    [CmdletBinding()]
+    [Obsolete("This commandlet is obsolete. Please use Check-Leader instead")]
+    PROCESS {
+        return (Check-Leader)
+    }
+}
+
+function Check-Leader {
+    <#
+    .SYNOPSIS
+    Check if current unit is leader.
+    #>
+    [CmdletBinding()]
+    PROCESS {
+        $cmd = @("is-leader.exe", "--format=json")
+        return (Execute-Command -Cmd $cmd | ConvertFrom-Json)
     }
 }
 
 function Set-LeaderData {
+    <#
+    .SYNOPSIS
+    Sets the given parameters as leader data.
+    .PARAMETER Settings
+    A hashtable containing the parameters to set.
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [Hashtable]$params
+        [Alias("params")]
+        [Hashtable]$Settings
     )
+    PROCESS {
+        $cmd = @("leader-set.exe")
 
-    $cmd = @("leader-set.exe")
-
-    foreach ($i in $params.GetEnumerator()) {
-       $cmd += $i.Name + "=" + $i.Value
+        foreach ($i in $params.GetEnumerator()) {
+           $cmd += $i.Name + "=" + $i.Value
+        }
+        Execute-Command $cmd | Out-Null
+        return $true
     }
-    try {
-        return Execute-Command $cmd
-    } catch {
-        return $false
-    }
-
-    return $false
 }
 
 function Get-LeaderData {
+    <#
+    .SYNOPSIS
+    Get values set by leader.
+    .PARAMETER Attribute
+    The attribute we want to get from leader data. If not specified, all leader data is returned.
+    #>
+    [CmdletBinding()]
     Param(
-        [string]$Attr=$null
+        [Alias("Attr")]
+        [string]$Attribute=$null
     )
-
-    $cmd = @("leader-get.exe", "--format=json")
-    if ($Attr) {
-        $cmd += $Attr
-    }
-    try {
-        return Execute-Command -Cmd $cmd | ConvertFrom-Json
-    } catch {
-        return $false
-    }
-}
-
-function Get-JujuRemoteUnitRelation {
-    Param(
-        [Parameter(Mandatory=$true)]
-        [Hashtable]$relationMap
-    )
-
-    $ctx = @{ }
-    $rid = Get-JujuRelationId
-    $unit = Get-JujuRemoteUnit
-    foreach ($key in $relationMap.Keys) {
-        $ctx[$key] = Get-JujuRelation -attr $relationMap[$key] `
-                     -rid $rid -unit $unit
-    }
-    $ctx["context"] = $true
-    $ctx["context"] = Check-ContextComplete -ctx $ctx
-
-    return $ctx
-}
-
-function Write-JujuLogHashtable {
-    Param($Hashtable)
-
-    foreach ($key in $Hashtable.Keys) {
-        try {
-            if (($Hashtable[$key]).GetType().Name -eq "Hashtable") {
-                Write-JujuLogHashtable $Hashtable
-            }
-            Write-JujuLog "$key => $($Hashtable[$key])"
-        } catch {
-            Write-JujuLog "Failed to log $key."
+    PROCESS {
+        $cmd = @("leader-get.exe", "--format=json")
+        if ($Attribute) {
+            $cmd += $Attribute
         }
+        return (Execute-Command -Cmd $cmd | ConvertFrom-Json)
+    }
+}
+
+function Get-JujuVersion {
+    <#
+    .SYNOPSIS
+    Gets the unit jujud version. This is useful if you plan to enable or disable features
+    based on jujud version.
+    #>
+    [CmdletBinding()]
+    PROCESS {
+        $cmd = @("jujud.exe", "version")
+        $return = Execute-Command -Command $cmd
+        $binaryVersion = $return.Split("-")
+        if($binaryVersion.Count -eq 3){
+            $details = @{
+                "version"=$binaryVersion[0];
+                "series"=$binaryVersion[1];
+                "arch"=$binaryVersion[2];
+            }
+        }elseif ($binaryVersion.Count -eq 4) {
+            $subversion = $binaryVersion[1]
+            Write-JujuWarning "Using beta version of juju ($subversion)"
+            $details = @{
+                "version"=$binaryVersion[0];
+                "subversion"=$subversion;
+                "series"=$binaryVersion[2];
+                "arch"=$binaryVersion[3];
+            }
+        }else{
+            Throw "Invalid jujud version"
+        }
+        return $details
     }
 }
 
 function Set-JujuStatus {
+    <#
+    .SYNOPSIS
+    Set the status of a running unit, optionally allowing the charm author to also set
+    a message along with the status. It is recommended that the charm set its status and
+    a message when the charm transitions from one state to another.
+    .PARAMETER Status
+    One of the following statuses: maintenance, blocked, waiting, active
+    .PARAMETER Message
+    An optional message to set along with the status
+    .PARAMETER StatusData
+    This parameter is currently ignored. It is not yet exposed in any version of juju-core.
+    Once it will be exposed, this commandlet will enable the StatusData parameter for versions
+    of juju that enable this feature.
+    #>
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [ValidatePattern("^\w+$")]
         [ValidateSet("maintenance", "blocked", "waiting", "active")]
-        [string]$Status=$null
-    )
-
-    $cmd = @("status-set.exe", $Status)
-    try {
+        [string]$Status,
+        [string]$Message,
+        [hashtable]$StatusData,
+    ) 
+    BEGIN {
+        # StatusData will be supported in future juju releases. At the time
+        # of this writing, status-data was not yet exposed via status-set
+        if($StatusData){
+            Write-JujuWarning "The status-data feature is not yet exposed to hook tools."
+            # TODO: Check juju version and set to $true when status-data gets exposed
+            $Supported = $false
+        }
+    }
+    PROCESS {
+        $cmd = @("status-set.exe", $Status)
+        if($Message){
+            $cmd += $Message
+        }
+        if($StatusData -and $Supported){
+            $js = ConvertTo-Json $StatusData
+            $cmd += $js
+        }
         if ((Get-JujuStatus) -ne $Status) {
             return Execute-Command -Cmd $cmd
         }
-    } catch {
-        return $false
     }
 }
 
 function Get-JujuStatus {
-    $cmd = @("status-get.exe", "--format=json")
-    try {
+    <#
+    .SYNOPSIS
+    Get unit status
+    .PARAMETER Full
+    return all data set in the status of a unit. Includes status, message, status-data
+    #>
+    [CmdletBinding()]
+    Param(
+        [switch]$Full=$false
+    )
+    PROCESS {
+        $cmd = @("status-get.exe", "--include-data","--format=json")
         $result = Execute-Command -Cmd $cmd | ConvertFrom-Json
-    } catch {
-        return $false
-    }
 
-    if ($result) {
+        if($Full){
+            return $result
+        }
         return $result["status"]
     }
 }
 
 function Get-JujuAction {
+    <#
+    .SYNOPSIS
+    Returns the action parameters from within a particular action
+    .PARAMETER Parameter
+    The name of the parameter we want to fetch data for. If left empty, this commandlet returns
+    all parameters defined in the action as a hashtable.
+    #>
+    [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
-        [string]$ActionParam
+        [Parameter(Mandatory=$false)]
+        [Alias("ActionParam")]
+        [string]$Parameter
     )
-
-    $cmd = @("action-get.exe")
-    $cmd += $ActionParam
-    try {
-        return Execute-Command $cmd
-    } catch [Exception] {
-        return $false
+    PROCESS {
+        $cmd = @("action-get.exe", "--format=json")
+        if($ActionParam){
+            $cmd += $ActionParam
+        }
+        return (Execute-Command $cmd | ConvertFrom-Json)
     }
 }
 
 function Set-JujuAction {
+    <#
+    .SYNOPSIS
+    This commandlet sets parameters for the current running action.
+    .PARAMETER Settings
+    A hashtable containing keys we want to set.
+    #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [hashtable]$ActionParams
+        [Alias("ActionParams")]
+        [hashtable]$Settings
     )
-
-    $cmd = @("action-set.exe")
-    $cmd += Get-CmdStringFromHashtable $ActionParams
-    try {
-        return Execute-Command $cmd
-    } catch [Exception] {
-        return $false
+    PROCESS {
+        $cmd = @("action-set.exe")
+        foreach($i in $Settings.GetEnumerator()){
+            $cmd += ($i.key + "=" + $i.Value)
+        }
+        Execute-Command -Command $cmd | Out-Null
+        return $true
     }
 }
 
 function Fail-JujuAction {
+    <#
+    .SYNOPSIS
+    Fail the current running action.
+    .PARAMETER Message
+    Optional parameter to set a message for the failing action.
+    #>
+    [CmdletBinding()]
     param(
-        [string]$message
+        [Parameter(Mandatory=$false)]
+        [string]$Message
     )
-
-    $cmd = @("action-fail.exe")
-    if ($message) {
-        $cmd += Escape-QuoteInString $message
-    }
-    try {
-        return Execute-Command $cmd
-    } catch [Exception] {
-        return $false
+    PROCESS {
+        $cmd = @("action-fail.exe")
+        if ($Message) {
+            $cmd += $Message
+        }
+        Execute-Command $cmd | Out-Null
+        return $true
     }
 }
 
