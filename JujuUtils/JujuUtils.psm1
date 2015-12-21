@@ -141,433 +141,540 @@ function Decrypt-String {
     }
 }
 
-function Execute-Process ($DestinationFile, $Arguments) {
-    if (($Arguments.Count -eq 0) -or ($Arguments -eq $null)) {
-        $p = Start-Process -FilePath $DestinationFile `
-                           -PassThru `
-                           -Wait
-    } else {
-        $p = Start-Process -FilePath $DestinationFile `
-                           -ArgumentList $Arguments `
-                           -PassThru `
-                           -Wait
+function Get-UserPath {
+    <#
+    .SYNOPSIS
+    Returns the $env:PATH variable for the current user.
+    #>
+    [CmdletBinding()]
+    PROCESS {
+        return [System.Environment]::GetEnvironmentVariable("PATH", "User")
     }
-
-    return $p
-}
-
-function Get-UserPath () {
-    return [System.Environment]::GetEnvironmentVariable("PATH", "User")
 }
 
 function Get-SystemPath {
-    return [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+    <#
+    .SYNOPSIS
+    Returns the system wide default $env:PATH.
+    #>
+    [CmdletBinding()]
+    PROCESS {
+        return [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+    }
 }
-
-function Write-PrivateProfileString ($Section, $Key, $Value, $Path) {
-    return [PSCloudbase.Win32IniApi]::WritePrivateProfileString(
-                                            $Section, $Key, $Value, $Path)
-}
-
-function Get-LastError () {
-    return [PSCloudbase.Win32IniApi]::GetLastError()
-}
-
 
 # TESTABLE METHODS
 
-function Compare-Objects ($first, $last) {
-    (Compare-Object $first $last -SyncWindow 0).Length -eq 0
-}
-
 function Compare-ScriptBlocks {
+    <#
+    .SYNOPSIS
+    Compare two script blocks
+    .PARAMETER ScriptBlock1
+    First script block
+    .PARAMETER ScriptBlock2
+    Second script block
+    #>
+    [CmdletBinding()]
     Param(
-        [System.Management.Automation.ScriptBlock]$scrBlock1,
-        [System.Management.Automation.ScriptBlock]$scrBlock2
+        [Parameter(Mandatory=$true)]
+        [Alias("scrBlock1")]
+        [System.Management.Automation.ScriptBlock]$ScriptBlock1,
+        [Parameter(Mandatory=$true)]
+        [Alias("scrBlock2")]
+        [System.Management.Automation.ScriptBlock]$ScriptBlock2
     )
-
-    $sb1 = $scrBlock1.ToString()
-    $sb2 = $scrBlock2.ToString()
-
-    return ($sb1.CompareTo($sb2) -eq 0)
-}
-
-function Add-FakeObjProperty ([ref]$obj, $name, $value) {
-    Add-Member -InputObject $obj.value -MemberType NoteProperty `
-        -Name $name -Value $value
-}
-
-function Add-FakeObjProperties ([ref]$obj, $fakeProperties, $value) {
-    foreach ($prop in $fakeProperties) {
-        Add-Member -InputObject $obj.value -MemberType NoteProperty `
-            -Name $prop -Value $value
+    PROCESS {
+        $sb1 = $ScriptBlock1.ToString()
+        $sb2 = $ScriptBlock2.ToString()
+        return ($sb1.CompareTo($sb2) -eq 0)
     }
 }
 
-function Add-FakeObjMethod ([ref]$obj, $name) {
-    Add-Member -InputObject $obj.value -MemberType ScriptMethod `
-        -Name $name -Value { return 0 }
-}
-
-function Add-FakeObjMethods ([ref]$obj, $fakeMethods) {
-    foreach ($method in $fakeMethods) {
-        Add-Member -InputObject $obj.value -MemberType ScriptMethod `
-            -Name $method -Value { return 0 }
+function Compare-Arrays {
+    <#
+    .SYNOPSIS
+    Compare two arrays. Returns a boolean value that determines whether or not the arrays are equal.
+    .PARAMETER Array1
+    First array to compare
+    .PARAMETER Array2
+    Second array to compare
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Alias("arr1")]
+        [array]$Array1,
+        [Parameter(Mandatory=$true)]
+        [Alias("arr2")]
+        [array]$Array2
+    )
+    PROCESS {
+        return (((Compare-Object $Array1 $Array2).InputObject).Length -eq 0)
     }
 }
 
-function Compare-Arrays ($arr1, $arr2) {
-    return (((Compare-Object $arr1 $arr2).InputObject).Length -eq 0)
-}
-
-function Compare-HashTables ($tab1, $tab2) {
-    if ($tab1.Count -ne $tab2.Count) {
-        return $false
-    }
-    foreach ($i in $tab1.Keys) {
-        if (($tab2.ContainsKey($i) -eq $false) -or ($tab1[$i] -ne $tab2[$i])) {
+function Compare-HashTables {
+    <#
+    .SYNOPSIS
+    Compare two arrays. Returns a boolean value that determines whether or not the arrays are equal.
+    .PARAMETER Array1
+    First array to compare
+    .PARAMETER Array2
+    Second array to compare
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Alias("tab1")]
+        [HashTable]$HashTable1,
+        [Parameter(Mandatory=$true)]
+        [Alias("tab2")]
+        [HashTable]$HashTable2
+    )
+    PROCESS {
+        if ($HashTable1.Count -ne $HashTable2.Count) {
             return $false
         }
+        foreach ($i in $HashTable1.Keys) {
+            if (($HashTable2.ContainsKey($i) -eq $false) -or ($HashTable1[$i] -ne $HashTable2[$i])) {
+                return $false
+            }
+        }
+        return $true
     }
-    return $true
-}
-
-function MergeLeft-Array {
-    param(
-        [Parameter(Mandatory=$true)]
-        [HashTable]$first,
-        [Parameter(Mandatory=$true)]
-        [HashTable]$second
-        )
-
-    foreach ($key in $second.Keys) {
-        $first[$key] = $second[$key]
-    }
-
-    return $first
-}
-
-function Update-IniEntry {
-    param(
-        $Path,
-        $Name,
-        $Value)
-
-    $content = Get-Content -Path $Path
-    $regex = "{{[\s]{0,}" + $Name + "[\s]{0,}}}"
-    $newContent = $content -Replace $regex,$Value
-    Set-Content -Path $Path -Value $newContent
 }
 
 function Execute-ExternalCommand {
+    <#
+    .SYNOPSIS
+    Helper function to execute a script block and throw an exception in case of error.
+    .PARAMETER ScriptBlock
+    Script block to execute
+    .PARAMETER ArgumentList
+    A list of parameters to pass to Invoke-Command
+    .PARAMETER ErrorMessage
+    Optional error message. This will become part of the exception message we throw in case of an error.
+    #>
+    [CmdletBinding()]
     param(
-        [ScriptBlock]$Command,
+        [Parameter(Mandatory=$true)]
+        [Alias("Command")]
+        [ScriptBlock]$ScriptBlock,
         [array]$ArgumentList=@(),
         [string]$ErrorMessage
     )
-
-    $res = Invoke-Command -ScriptBlock $Command -ArgumentList $ArgumentList
-    if ($LASTEXITCODE -ne 0) {
-        throw $ErrorMessage
+    PROCESS {
+        $res = Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+        if ($LASTEXITCODE -ne 0) {
+            if(!$ErrorMessage){
+                Throw ("Command exited with status: {0}" -f $LASTEXITCODE)
+            }
+            throw (("{0} (Exit code: $LASTEXITCODE)" -f $ErrorMessage)
+        }
+        return $res
     }
-    return $res
 }
 
 function Write-HookTracebackToLog {
+    <#
+    .SYNOPSIS
+    A helper function that accepts an ErrorRecord and writes a full call stack trace of that error to the juju log. This function
+    works best when used in a try/catch block. You get a chance to log the error with proper log level before you re-throw it, or
+    exit the hook. 
+    .PARAMETER ErrorRecord
+    The error record to log.
+    .PARAMETER LogLevel
+    Optional log level to use. Defaults to ERROR.
+    #>
+    [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$true)]
         [System.Management.Automation.ErrorRecord]$ErrorRecord,
         [string]$LogLevel="ERROR"
     )
-    $name = $MyInvocation.PSCommandPath
-    Write-JujuLog "Error while running $name" -LogLevel $LogLevel
-    $info = Get-CallStack $ErrorRecord
-    foreach ($i in $info){
-        Write-JujuLog $i -LogLevel $LogLevel
+    PROCESS {
+        $name = $MyInvocation.PSCommandPath
+        Write-JujuLog "Error while running $name" -LogLevel $LogLevel
+        $info = Get-CallStack $ErrorRecord
+        foreach ($i in $info){
+            Write-JujuLog $i -LogLevel $LogLevel
+        }
     }
 }
 
 function Get-CallStack {
+    <#
+    .SYNOPSIS
+    Returns an array of three elements, containing: Error message, error position, and stack trace.
+    .PARAMETER ErrorRecord
+    The error record to extract details from.
+    #>
+    [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$true)]
         [System.Management.Automation.ErrorRecord]$ErrorRecord
     )
-    $message = $ErrorRecord.Exception.Message
-    $position = $ErrorRecord.InvocationInfo.PositionMessage
-    $trace = $ErrorRecord.ScriptStackTrace
-    $info = @($message, $position, $trace)
-    return $info
+    PROCESS {
+        $message = $ErrorRecord.Exception.Message
+        $position = $ErrorRecord.InvocationInfo.PositionMessage
+        $trace = $ErrorRecord.ScriptStackTrace
+        $info = @($message, $position, $trace)
+        return $info
+    }
 }
 
 function ExecuteWith-Retry {
+    <#
+    .SYNOPSIS
+    In some cases a command may fail several times before it succeeds, be it because of network outage, or a service
+    not being ready yet, etc. This is a helper function to allow you to execute a function or binary a number of times
+    before actually failing.
+
+    Its important to note, that any powershell commandlet or native command can be executed using this function. The result
+    of that command or powershell commandlet will be returned by this function.
+
+    Only the last exception will be thrown, and will be logged with a log level of ERROR.
+    .PARAMETER ScriptBlock
+    The script block to run.
+    .PARAMETER MaxRetryCount
+    The number of retries before we throw an exception.
+    .PARAMETER RetryInterval
+    Number of seconds to sleep between retries.
+    .PARAMETER ArgumentList
+    Arguments to pass to your wrapped commandlet/command.
+
+    .EXAMPLE
+    # If the computer just booted after the machine just joined the domain, and your charm starts running,
+    # it may error out until the security policy has been fully applied. In the bellow example we retry 10
+    # times and wait 10 seconds between retries before we give up. If successful, $ret will contain the result
+    # of Get-ADUser. If it does not, an exception is thrown. 
+    $ret = ExecuteWith-Retry -ScriptBlock {
+        Get-ADUser testuser
+    } -MaxRetryCount 10 -RetryInterval 10
+    #>
+    [CmdletBinding()]
     param(
-        [ScriptBlock]$Command,
+        [Parameter(Mandatory=$true)]
+        [Alias("Command")]
+        [ScriptBlock]$ScriptBlock,
         [int]$MaxRetryCount=10,
         [int]$RetryInterval=3,
         [array]$ArgumentList=@()
     )
+    PROCESS {
+        $currentErrorActionPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
 
-    $currentErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-
-    $retryCount = 0
-    while ($true) {
-        try {
-            $res = Invoke-Command -ScriptBlock $Command `
-                     -ArgumentList $ArgumentList
-            $ErrorActionPreference = $currentErrorActionPreference
-            return $res
-        } catch [System.Exception] {
-            $retryCount++
-            if ($retryCount -gt $MaxRetryCount) {
+        $retryCount = 0
+        while ($true) {
+            try {
+                $res = Invoke-Command -ScriptBlock $ScriptBlock `
+                         -ArgumentList $ArgumentList
                 $ErrorActionPreference = $currentErrorActionPreference
-                throw
-            } else {
-                Write-HookTracebackToLog $_ -LogLevel WARNING
-                Start-Sleep $RetryInterval
+                return $res
+            } catch [System.Exception] {
+                $retryCount++
+                if ($retryCount -gt $MaxRetryCount) {
+                    $ErrorActionPreference = $currentErrorActionPreference
+                    throw
+                } else {
+                    Write-HookTracebackToLog $_ -LogLevel WARNING
+                    Start-Sleep $RetryInterval
+                }
             }
         }
     }
 }
 
-function Unzip-File ($zipFile, $destination) {
-    $shellApp = New-Object -ComObject Shell.Application
-    $zipFileNs = $shellApp.NameSpace($zipFile)
-    $destinationNs = $shellApp.NameSpace($destination)
-    $destinationNs.CopyHere($zipFileNs.Items(), 0x4)
-}
-
-function Check-FileIntegrityWithSHA1 {
-    param(
-        [Parameter(Mandatory=$true)]
+function Check-FileIntegrity {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
         [string]$File,
         [Parameter(Mandatory=$true)]
-        [string]$ExpectedSHA1Hash
+        [string]$ExpectedHash,
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160")]
+        [string]$Algorithm="SHA1"
     )
-
-    $hash = (Get-FileHash -Path $File -Algorithm "SHA1").Hash
-    if ($hash -ne $ExpectedSHA1Hash) {
-        $errMsg = "SHA1 hash not valid for file: $filename. " +
-                  "Expected: $ExpectedSHA1Hash Current: $hash"
-        throw $errMsg
-    }
-}
-
-function Get-DependenciesDownloadLinks {
-    [Parameter(Mandatory=$true)]
-    param ($DownloadLinks)
-
-    return $DownloadLinks.Split(";")
-}
-
-# the download information for a file resource can be sent as
-# description|http://example.com/download.exe#sha1-hash
-function Get-DownloadLinkMetadata {
-    [Parameter(Mandatory=$true)]
-    param ($DownloadLink)
-
-    $metadata = @{
-        "description" = "";
-        "uri" = "";
-        "sha1" = "";
-        "file" = "";
-    }
-
-    $descriptionParts = $DownloadLink.Split("|")
-    if ($descriptionParts.Count -eq 2) {
-        $metadata["description"] = $descriptionParts[0]
-        $uriParts = $descriptionParts[1]
-    } else {
-        $uriParts = $DownloadLink
-    }
-
-    $hashParts = $uriParts.Split("#")
-    if ($hashParts.Count -eq 2) {
-        $metadata["sha1"] = $hashParts[1]
-        $metadata["uri"] = $hashParts[0]
-    } else {
-        $metadata["uri"] = $uriParts
-    }
-
-    $metadata["file"] = Split-Path $metadata["uri"] -Leaf
-
-    return $metadata
-}
-
-function Download-File ($DownloadLink, $DestinationFile, $ExpectedSHA1Hash) {
-    $webClient = New-Object System.Net.WebClient
-
-    if ($DestinationFile -eq $null) {
-        $fileName = $DownloadLink.Split('/')[-1]
-        $DestinationFile = "$env:TEMP\" + $filename
-    }
-
-    ExecuteWith-Retry -Command {
-        # test if DownloadLink a samba share path or a local path
-        if (Test-Path $DownloadLink) {
-            Copy-Item -Path $DownloadLink -Destination $DestinationFile `
-                -Force -Recurse
-        } else {
-                #It will overwrite any existent file
-                $webClient.DownloadFile($DownloadLink, $DestinationFile)
-        }
-    } -MaxRetryCount 5 -RetryInterval 30
-
-    if($ExpectedSHA1Hash) {
-        Check-FileIntegrityWithSHA1 $DestinationFile $ExpectedSHA1Hash
-    }
-
-    $fileExists = Test-Path $DestinationFile
-    if ($fileExists){
-        return $DestinationFile
-    } else {
-        throw "Failed to download file."
-    }
-}
-
-function Remove-DuplicatePaths ($Path) {
-    $arrayPath = $Path.Split(';')
-    $arrayPath = $arrayPath | Select-Object -Unique
-    $newPath = $arrayPath -join ';'
-
-    return $newPath
-}
-
-function AddTo-UserPath ($Path) {
-    $newPath = Remove-DuplicatePaths "$env:Path;$Path"
-
-    Execute-ExternalCommand -Command {
-        setx PATH $newPath
-    } -ErrorMessage "Failed to set user path"
-
-    Renew-PSSessionPath
-}
-
-function Renew-PSSessionPath () {
-    $userPath = Get-UserPath
-    $systemPath = Get-SystemPath
-
-    $newPath = $env:Path
-    if (($userPath -ne $null) -and ($systemPath -ne $null)) {
-        $newPath += ";$userPath;$systemPath"
-    } else {
-        if ($userPath -eq $null) {
-            $newPath += ";$systemPath"
-        } else {
-            $newPath += ";$userPath"
+    PROCESS {
+        $hash = (Get-FileHash -Path $File -Algorithm $Algorithm).Hash
+        if ($hash -ne $ExpectedHash) {
+            throw ("File integrity check failed for {0}. Expected {1}, got {2}" -f @($File, $ExpectedHash, $hash))
         }
     }
-
-    $env:Path = Remove-DuplicatePaths $newPath
 }
 
-function Marshall-Object {
-    Param(
-        $obj
-    )
+function Invoke-FastWebRequest {
+    <#
+    .SYNOPSIS
+    Invoke-FastWebRequest downloads a file form the web via HTTP. This function will work on all modern windows versions,
+    including Windows Server Nano. This function also allows file integrity checks using common hashing algorithms:
 
-    $encoded = $obj | ConvertTo-Json
-    $b64 = ConvertTo-Base64 $encoded
-    return $b64
-}
+    "SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160"
 
-function Unmarshall-Object {
-    Param(
-        $obj
-    )
-    $decode = ConvertFrom-Base64 $obj
-    $ret = $decode | ConvertFrom-Json
-    return $ret
-}
+    The hash of the file being downloaded should be specified in the Uri itself. See examples.
+    .PARAMETER Uri
+    The address from where to fetch the file
+    .PARAMETER OutFile
+    Destination file
+    .PARAMETER SkipIntegrityCheck
+    Skip file integrity check even if a valid hash is specified in the Uri.
 
-function Set-IniFileValue {
+    .EXAMPLE
+
+    # Download file without file integrity check
+    Invoke-FastWebRequest -Uri http://example.com/archive.zip -OutFile (Join-Path $env:TMP archive.zip)
+
+    .EXAMPLE
+    # Download file with file integrity check
+    Invoke-FastWebRequest -Uri http://example.com/archive.zip#md5=43d89a2f6b8a8918ce3eb76227685276 `
+                          -OutFile (Join-Path $env:TMP archive.zip)
+
+    .EXAMPLE
+    # Force skip file integrity check
+    Invoke-FastWebRequest -Uri http://example.com/archive.zip#md5=43d89a2f6b8a8918ce3eb76227685276 `
+                          -OutFile (Join-Path $env:TMP archive.zip) -SkipIntegrityCheck:$true
+    #>
     [CmdletBinding()]
-    param(
-        [parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [string]$Key,
-        [parameter()]
-        [string]$Section = "DEFAULT",
-        [parameter(Mandatory=$true)]
-        [string]$Value,
-        [parameter(Mandatory=$true)]
-        [string]$Path
+    Param(
+        [Parameter(Mandatory=$True,ValueFromPipeline=$true,Position=0)]
+        [System.Uri]$Uri,
+        [Parameter(Position=1)]
+        [string]$OutFile,
+        [switch]$SkipIntegrityCheck=$false
     )
-
-    process
+    PROCESS
     {
-        $Source = @"
-        using System;
-        using System.Text;
-        using System.Runtime.InteropServices;
-
-        namespace PSCloudbase
+        if(!([System.Management.Automation.PSTypeName]'System.Net.Http.HttpClient').Type)
         {
-            public sealed class Win32IniApi
-            {
-                [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
-                public static extern uint GetPrivateProfileString(
-                   string lpAppName,
-                   string lpKeyName,
-                   string lpDefault,
-                   StringBuilder lpReturnedString,
-                   uint nSize,
-                   string lpFileName);
+            $assembly = [System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
+        }
 
-                [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
-                [return: MarshalAs(UnmanagedType.Bool)]
-                public static extern bool WritePrivateProfileString(
-                   string lpAppName,
-                   string lpKeyName,
-                   StringBuilder lpString, // Don't use string, as Powershell replaces $null with an empty string
-                   string lpFileName);
+        [Environment]::CurrentDirectory = (pwd).Path
 
-                [DllImport("Kernel32.dll")]
-                public static extern uint GetLastError();
+        if(!$OutFile) {
+            $OutFile = $Uri.PathAndQuery.Substring($Uri.PathAndQuery.LastIndexOf("/") + 1)
+            if(!$OutFile) {
+                throw "The ""OutFile"" parameter needs to be specified"
             }
         }
-"@
-        Add-Type -TypeDefinition $Source -Language CSharp
-        $retVal = Write-PrivateProfileString $Section $Key $Value $Path
-        $lastError = Get-LastError
-        if (!$retVal -and $lastError) {
-            throw ("Cannot set value in ini file: " + $lastError)
+
+        $client = new-object System.Net.Http.HttpClient
+        $task = $client.GetAsync($Uri)
+        $task.wait()
+        $response = $task.Result
+        $status = $response.EnsureSuccessStatusCode()
+
+        $outStream = New-Object IO.FileStream $OutFile, Create, Write, None
+
+        try {
+            $task = $response.Content.ReadAsStreamAsync()
+            $task.Wait()
+            $inStream = $task.Result
+
+            $contentLength = $response.Content.Headers.ContentLength
+
+            $totRead = 0
+            $buffer = New-Object Byte[] 1MB
+            while (($read = $inStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                $totRead += $read
+                $outStream.Write($buffer, 0, $read);
+
+                if($contentLength){
+                    $percComplete = $totRead * 100 / $contentLength
+                    Write-Progress -Activity "Downloading: $Uri" -PercentComplete $percComplete
+                }
+            }
+
+            if(!$SkipIntegrityCheck) {
+                $fragment = $Uri.Fragment.Trim('#')
+                if (!$fragment){
+                    return
+                }
+                $details = $fragment.Split("=")
+                $algorithm = $details[0]
+                $hash = $details[1]
+                if($algorithm -in @("SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160")){
+                    Check-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash
+                } else {
+                    Write-JujuWarning "Hash algorithm $algorithm not recognized. Skipping file integrity check."
+                }
+            }
         }
+        finally {
+            $outStream.Close()
+        }
+    }
+}
+
+function Unzip-File {
+    <#
+    .SYNOPSIS
+    Helper function to unzip a file. This function should work on all modern windows versions, including Windows Server Nano.
+    .PARAMETER ZipFile
+    The path to the zip archive
+    .PARAMETER Destination
+    The destination folder into which to unarchive the zipfile.
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$ZipFile,
+        [Parameter(Mandatory=$true)]
+        [string]$Destination
+    )
+    PROCESS {
+        try {
+            # This will work on Windows 10/Windows Server 2016.
+            Expand-Archive -Path $ZipFile -DestinationPath $Destination
+        } catch [System.Management.Automation.CommandNotFoundException] {
+            try {
+                # Try without loading system.io.compression.filesystem. This will work by default on Nano
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipFile, $Destination)
+            }catch [System.Management.Automation.RuntimeException] {
+                # Load system.io.compression.filesystem. This will work on the full version of Windows Server
+                Add-Type -assembly "system.io.compression.filesystem"
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipFile, $Destination)
+            }
+        }
+    }
+}
+
+function Get-SanePath {
+    <#
+    .SYNOPSIS
+    There are some situations in which the $env:PATH variable may contain duplicate paths. This function returns
+    a sanitized $env:PATH without any duplicates.
+    #>
+    [CmdletBinding()]
+    PROCESS {
+        $path = $env:PATH
+        $arrayPath = $path.Split(';')
+        $arrayPath = $arrayPath | Select-Object -Unique
+        $newPath = $arrayPath -join ';'
+        return $newPath
+    }
+}
+
+function AddTo-UserPath {
+    <#
+    .SYNOPSIS
+    Permanently add an additional path to $env:PATH for current user, and also set the current $env:PATH to the new value.
+    .PARAMETER Path
+    Extra path to add to $env:PATH
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$Path
+    )
+    PROCESS {
+        $currentPath = Get-SanePath
+        if ($Path -in $env:Path.Split(';')){
+            return
+        }
+        $newPath = "$currentPath;$Path"
+        Execute-ExternalCommand -Command {
+            setx PATH $newPath
+        } -ErrorMessage "Failed to set user path"
+        $env:PATH = $newPath
+    }
+}
+
+function Get-MarshaledObject {
+    <#
+    .SYNOPSIS
+    Get a base64 encoded representation of a json encoded powershell object. "Why?" you might ask. Well, in some cases you
+    may need to send more complex information through a relation to another charm. This function allows you to send simple
+    powershell objects (hashtables, arrays, etc) as base64 encoded strings. This function first encodes them to json, and
+    then to base64 encoded strings.
+
+    This also allows us to send the same information to any kind of charm that can unmarshal json to a native type (say python).
+    .PARAMETER Object
+
+    .NOTES
+    Powershell uses utf-16-le encoding for objects
+
+    .EXAMPLE
+
+    $obj = @{"Hello"="world";}
+    Get-MarshaledObject -Object $obj
+    ewANAAoAIAAgACAAIAAiAEgAZQBsAGwAbwAiADoAIAAgACIAdwBvAHIAbABkACIADQAKAH0A
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Alias("obj")]
+        $Object
+    )
+    PROCESS {
+        $encoded = $Object | ConvertTo-Json
+        $b64 = ConvertTo-Base64 $encoded
+        return $b64
+    }
+}
+
+function Get-UnmarshaledObject {
+    <#
+    .SYNOPSIS
+    Try to convert a base64 encoded string back to a powershell object.
+    .PARAMETER Object
+    The base64 encoded representation of the object we want to unmarshal. 
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [Alias("obj")]
+        [string]$Object
+    )
+    PROCESS {
+        $decode = ConvertFrom-Base64 $Object
+        $ret = $decode | ConvertFrom-Json
+        return $ret
     }
 }
 
 function Get-CmdStringFromHashtable {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         [Hashtable]$params
     )
+    PROCESS {
+        $args = ""
+        foreach($i in $params.GetEnumerator()) {
+            $args += $i.key + "=" + $i.value + " "
+        }
 
-    $args = ""
-    foreach($i in $params.GetEnumerator()) {
-        $args += $i.key + "=" + $i.value + " "
+        return $args
     }
-
-    return $args
 }
 
 function Escape-QuoteInString {
+    [CmdletBinding()]
     param(
         [string]$value
     )
-    return "'" + $value.Replace("'", "''") + "'"
+    PROCESS {
+        return "'" + $value.Replace("'", "''") + "'"
+    }
 }
 
 function Get-PSStringParamsFromHashtable {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         [Hashtable]$params
     )
+    PROCESS {
+        $args = ""
+        foreach($i in $params.GetEnumerator()) {
+            $args += ("-" + $i.key + " " + $i.value + " ")
+        }
 
-    $args = ""
-    foreach($i in $params.GetEnumerator()) {
-        $args += ("-" + $i.key + " " + $i.value + " ")
+        return $args -join " "
     }
-
-    return $args -join " "
 }
 
 Export-ModuleMember -Function *
