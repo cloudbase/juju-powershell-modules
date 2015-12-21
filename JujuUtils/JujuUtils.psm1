@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-function ConvertFile-ToBase64{
+function Convert-FileToBase64{
     <#
     .SYNOPSIS
     This powershell commandlet converts an entire file, byte by byte to base64 and returns the string.
@@ -41,7 +41,7 @@ function ConvertFile-ToBase64{
     }
 }
 
-function WriteFile-FromBase64 {
+function Write-FileFromBase64 {
     <#
     .SYNOPSIS
     Helper function that converts base64 to bytes and then writes that stream to a file.
@@ -99,7 +99,7 @@ function ConvertFrom-Base64 {
     }
 }
 
-function Encrypt-String {
+function Get-EncryptedString {
     <#
     .SYNOPSIS
     This is just a helper function that converts a plain string to a secure string and returns the encrypted
@@ -118,7 +118,7 @@ function Encrypt-String {
     }
 }
 
-function Decrypt-String {
+function Get-DecryptedString {
     <#
     .SYNOPSIS
     Decrypt a securestring back to its plain text representation.
@@ -244,7 +244,7 @@ function Compare-HashTables {
     }
 }
 
-function Execute-ExternalCommand {
+function Start-ExternalCommand {
     <#
     .SYNOPSIS
     Helper function to execute a script block and throw an exception in case of error.
@@ -323,7 +323,7 @@ function Get-CallStack {
     }
 }
 
-function ExecuteWith-Retry {
+function Start-ExecuteWithRetry {
     <#
     .SYNOPSIS
     In some cases a command may fail several times before it succeeds, be it because of network outage, or a service
@@ -348,7 +348,7 @@ function ExecuteWith-Retry {
     # it may error out until the security policy has been fully applied. In the bellow example we retry 10
     # times and wait 10 seconds between retries before we give up. If successful, $ret will contain the result
     # of Get-ADUser. If it does not, an exception is thrown. 
-    $ret = ExecuteWith-Retry -ScriptBlock {
+    $ret = Start-ExecuteWithRetry -ScriptBlock {
         Get-ADUser testuser
     } -MaxRetryCount 10 -RetryInterval 10
     #>
@@ -386,7 +386,7 @@ function ExecuteWith-Retry {
     }
 }
 
-function Check-FileIntegrity {
+function Test-FileIntegrity {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
@@ -496,7 +496,7 @@ function Invoke-FastWebRequest {
                 $algorithm = $details[0]
                 $hash = $details[1]
                 if($algorithm -in @("SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160")){
-                    Check-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash
+                    Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash
                 } else {
                     Write-JujuWarning "Hash algorithm $algorithm not recognized. Skipping file integrity check."
                 }
@@ -508,7 +508,7 @@ function Invoke-FastWebRequest {
     }
 }
 
-function Unzip-File {
+function Expand-ZipArchive {
     <#
     .SYNOPSIS
     Helper function to unzip a file. This function should work on all modern windows versions, including Windows Server Nano.
@@ -557,7 +557,7 @@ function Get-SanePath {
     }
 }
 
-function AddTo-UserPath {
+function Add-ToUserPath {
     <#
     .SYNOPSIS
     Permanently add an additional path to $env:PATH for current user, and also set the current $env:PATH to the new value.
@@ -575,7 +575,7 @@ function AddTo-UserPath {
             return
         }
         $newPath = "$currentPath;$Path"
-        Execute-ExternalCommand -Command {
+        Start-ExternalCommand -Command {
             setx PATH $newPath
         } -ErrorMessage "Failed to set user path"
         $env:PATH = $newPath
@@ -636,22 +636,37 @@ function Get-UnmarshaledObject {
 }
 
 function Get-CmdStringFromHashtable {
+    <#
+    .SYNOPSIS
+    Convert a hashtable to a command line key/value string. Values for hashtable keys must be string or int. The result is usually suitable for native commands executed via cmd.exe.
+    .PARAMETER Parameters
+    hashtable containing command line parameters.
+
+    .EXAMPLE
+    $params = @{
+        "firstname"="John";
+        "lastname"="Doe";
+        "age"="20";
+    }
+    Get-CmdStringFromHashtable $params
+    age=20 firstname=John lastname=Doe
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [Hashtable]$params
+        [Alias("params")]
+        [Hashtable]$Parameters
     )
     PROCESS {
         $args = ""
         foreach($i in $params.GetEnumerator()) {
             $args += $i.key + "=" + $i.value + " "
         }
-
         return $args
     }
 }
 
-function Escape-QuoteInString {
+function Get-EscapedQuotedString {
     [CmdletBinding()]
     param(
         [string]$value
@@ -662,6 +677,21 @@ function Escape-QuoteInString {
 }
 
 function Get-PSStringParamsFromHashtable {
+    <#
+    .SYNOPSIS
+    Convert a hashtable to a powershell command line options. Values can be any powershell object.
+    .PARAMETER Parameters
+    hashtable containing command line parameters.
+
+    .EXAMPLE
+    $params = @{
+        "firstname"="John";
+        "lastname"="Doe";
+        "age"="20";
+    }
+    Get-CmdStringFromHashtable $params
+    -age 20 -firstname John -lastname Doe
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -676,5 +706,3 @@ function Get-PSStringParamsFromHashtable {
         return $args -join " "
     }
 }
-
-Export-ModuleMember -Function *

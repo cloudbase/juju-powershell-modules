@@ -22,7 +22,7 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-# RootModule = 'JujuUtils.psm1'
+RootModule = 'JujuUtils.psm1'
 
 # Version number of this module.
 ModuleVersion = '0.1'
@@ -77,10 +77,10 @@ Description = 'Helper module for Juju Charms'
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
 
-NestedModules = @("JujuUtils.psm1")
+# NestedModules = @("JujuUtils.psm1")
 
 # Functions to export from this module
-FunctionsToExport = '*'
+FunctionsToExport = "Convert-FileToBase64","Write-FileFromBase64","ConvertTo-Base64","ConvertFrom-Base64","Get-EncryptedString","Get-DecryptedString","Get-UserPath","Get-SystemPath","Compare-ScriptBlocks","Compare-Arrays","Compare-HashTables","Start-ExternalCommand","Write-HookTracebackToLog","Get-CallStack","Start-ExecuteWithRetry","Test-FileIntegrity","Invoke-FastWebRequest","Expand-ZipArchive","Get-SanePath","Add-ToUserPath","Get-MarshaledObject","Get-UnmarshaledObject","Get-CmdStringFromHashtable","Get-EscapedQuotedString","Get-PSStringParamsFromHashtable"
 
 # Cmdlets to export from this module
 CmdletsToExport = '*'

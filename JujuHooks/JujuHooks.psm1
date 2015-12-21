@@ -1222,205 +1222,22 @@ function Fail-JujuAction {
 
 
 #Python/Bash like function aliases
-function charm_dir {
-    <#
-    .SYNOPSIS
-     Alias for Get-JujuCharmDir
-    #>
-    return Get-JujuCharmDir
-}
-
-function in_relation_hook {
-    <#
-    .SYNOPSIS
-     Alias for Has-JujuRelation
-    #>
-    return Has-JujuRelation
-}
-
-function relation_type {
-    <#
-    .SYNOPSIS
-     Alias for Get-JujuRelationType
-    #>
-    return Get-JujuRelationType
-}
-
-function relation_id {
-    <#
-    .SYNOPSIS
-     Alias for Get-JujuRelationId
-    #>
-    return Get-JujuRelationId
-}
-
-function local_unit {
-    <#
-    .SYNOPSIS
-     Alias for Get-JujuLocalUnit
-    #>
-    return Get-JujuLocalUnit
-}
-
-function remote_unit {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuRemoteUnit
-    #>
-    return Get-JujuRemoteUnit
-}
-
-function service_name {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuServiceName
-    #>
-    return Get-JujuServiceName
-}
-
-function is_master_unit {
-    <#
-    .SYNOPSIS
-    Alias for Is-JujuMasterUnit
-    #>
-    return Is-JujuMasterUnit
-}
-
-function charm_config {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuCharmConfig
-    #>
-    Param(
-        [string]$Scope=$null
-    )
-
-    return Get-JujuCharmConfig -Scope $Scope
-}
-
-function relation_get {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuRelation
-    #>
-    Param(
-        [string]$Attr=$null,
-        [string]$Unit=$null,
-        [string]$Rid=$null
-    )
-
-    return Get-JujuRelation -Attr $Attr -Unit $Unit -Rid $Rid
-}
-
-function relation_set {
-    <#
-    .SYNOPSIS
-    Alias for Set-JujuRelation
-    #>
-    Param(
-        [string]$Relation_Id=$null,
-        [Hashtable]$Relation_Settings=@{}
-    )
-
-    return Set-JujuRelation -Relation_Id $Relation_Id `
-                            -Relation_Settings $Relation_Settings
-}
-
-function relation_ids {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuRelationIds
-    #>
-    Param(
-        [string]$RelType=$null
-    )
-
-    return Get-JujuRelationIds -RelType $RelType
-}
-
-function related_units {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuRelatedUnits
-    #>
-    Param(
-        [string]$RelId=$null
-    )
-
-    return Get-JujuRelatedUnits -RelId $RelId
-}
-
-function relation_for_unit {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuRelationForUnit
-    #>
-    Param(
-        [string]$Unit=$null,
-        [string]$Rid=$null
-    )
-
-    return Get-JujuRelationForUnit -Unit $Unit -Rid $Rid
-}
-
-function relations_for_id {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuRelationsForId
-    #>
-    Param(
-        [string]$RelId=$null
-    )
-
-    return Get-JujuRelationsForId -RelId $RelId
-}
-
-function relations_of_type {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuRelationsOfType
-    #>
-    Param(
-        [string]$RelType=$null
-    )
-
-    return Get-JujuRelationsOfType -RelType $RelType
-}
-
-function is_relation_made {
-    <#
-    .SYNOPSIS
-    Alias for Is-JujuRelationCreated
-    #>
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Relation,
-        [Obsolete("This parameter is no longer required.")]
-        [string]$Keys='private-address'
-    )
-
-    return Is-JujuRelationCreated -Relation $Relation -Keys $Keys
-}
-
-function unit_get {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuUnit
-    #>
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Attr
-    )
-
-    return Get-JujuUnit -Attr $Attr
-}
-
-function unit_private_ip {
-    <#
-    .SYNOPSIS
-    Alias for Get-JujuUnitPrivateIP
-    #>
-    return Get-JujuUnitPrivateIP
-}
-
-Export-ModuleMember -Function *
+New-Alias -Name charm_dir -Value Get-JujuCharmDir
+New-Alias -Name in_relation_hook -Value Has-JujuRelation
+New-Alias -Name relation_type -Value Get-JujuRelationType
+New-Alias -Name relation_id -Value Get-JujuRelationId
+New-Alias -Name local_unit -Value Get-JujuLocalUnit
+New-Alias -Name remote_unit -Value Get-JujuRemoteUnit
+New-Alias -Name service_name -Value Get-JujuServiceName
+New-Alias -Name is_master_unit -Value Is-JujuMasterUnit
+New-Alias -Name charm_config -Value Get-JujuCharmConfig
+New-Alias -Name relation_get -Value Get-JujuRelation
+New-Alias -Name relation_set -Value Set-JujuRelation
+New-Alias -Name relation_ids -Value Get-JujuRelationIds
+New-Alias -Name related_units -Value Get-JujuRelatedUnits
+New-Alias -Name relation_for_unit -Value Get-JujuRelationForUnit
+New-Alias -Name relations_for_id -Value Get-JujuRelationsForId
+New-Alias -Name relations_of_type -Value Get-JujuRelationsOfType
+New-Alias -Name is_relation_made -Value Is-JujuRelationCreated
+New-Alias -Name unit_get -Value Get-JujuUnit
+New-Alias -Name unit_private_ip -Value Get-JujuUnitPrivateIP

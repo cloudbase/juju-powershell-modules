@@ -22,7 +22,7 @@
 @{
 
 # Script module or binary module file associated with this manifest.
-# RootModule = 'JujuHooks.psm1'
+RootModule = 'JujuHooks.psm1'
 
 # Version number of this module.
 ModuleVersion = '0.1'
@@ -76,12 +76,10 @@ Description = 'Helper module for Juju Charms'
 # FormatsToProcess = @()
 
 # Modules to import as nested modules of the module specified in RootModule/ModuleToProcess
-
-NestedModules = @("JujuHooks.psm1")
+# NestedModules = @("JujuHooks.psm1")
 
 # Functions to export from this module
-FunctionsToExport = '*'
-
+FunctionsToExport = "Check-ContextComplete","Get-JujuCharmDir","Has-JujuRelation","Get-JujuRelationType","Get-JujuRelationId","Get-JujuLocalUnit","Get-JujuRemoteUnit","Get-JujuServiceName","Is-JujuMasterUnit","Execute-Command","Get-JujuCharmConfig","Get-JujuRelation","Set-JujuRelation","Get-JujuRelationIds","Get-JujuRelatedUnits","Get-JujuRelationForUnit","Get-JujuRelationForId","Get-JujuRelationsOfType","Is-JujuRelationCreated","Get-JujuUnit","Check-IP","Resolve-Address","Get-JujuUnitPrivateIP","Get-JujuRelationContext{","Get-JujuRelationParams","Write-JujuLog","Write-JujuDebug","Write-JujuTrace","Write-JujuInfo","Write-JujuWarning","Write-JujuCritical","Write-JujuErr","Write-JujuError","ExitFrom-JujuHook","Execute-JujuReboot","Get-MainNetadapter","Get-PrimaryAdapterDNSServers","Check-JujuPortRangeOpen{","Is-JujuPortRangeOpen","Open-JujuPort","Close-JujuPort","Is-Leader","Check-Leader","Set-LeaderData","Get-LeaderData","Get-JujuVersion","Set-JujuStatus","Get-JujuStatus","Get-JujuAction","Set-JujuAction","Fail-JujuAction"
 # Cmdlets to export from this module
 CmdletsToExport = '*'
 
@@ -89,7 +87,7 @@ CmdletsToExport = '*'
 VariablesToExport = '*'
 
 # Aliases to export from this module
-AliasesToExport = '*'
+AliasesToExport = "charm_dir","in_relation_hook","relation_type","relation_id","local_unit","remote_unit","service_name","is_master_unit","charm_config","relation_get","relation_set","relation_ids","related_units","relation_for_unit","relations_for_id","relations_of_type","is_relation_made","unit_get","unit_private_ip"
 
 # List of all modules packaged with this module
 # ModuleList = @()
