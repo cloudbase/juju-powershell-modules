@@ -21,7 +21,7 @@ function Start-ProcessRedirect {
     param(
         [Parameter(Mandatory=$true)]
         [array]$Filename,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [array]$Arguments,
         [Parameter(Mandatory=$false)]
         [array]$Domain,
@@ -30,7 +30,6 @@ function Start-ProcessRedirect {
         [Parameter(Mandatory=$false)]
         $SecPassword
     )
-
     $pinfo = New-Object System.Diagnostics.ProcessStartInfo
     $pinfo.FileName = $Filename
     if ($Domain -ne $null) {
@@ -43,17 +42,13 @@ function Start-ProcessRedirect {
     $pinfo.RedirectStandardOutput = $true
     $pinfo.UseShellExecute = $false
     $pinfo.LoadUserProfile = $true
-    $pinfo.Arguments = $Arguments
+    if($Arguments){
+        $pinfo.Arguments = $Arguments
+    }
     $p = New-Object System.Diagnostics.Process
     $p.StartInfo = $pinfo
     $p.Start() | Out-Null
     $p.WaitForExit()
-
-    $stdout = $p.StandardOutput.ReadToEnd()
-    $stderr = $p.StandardError.ReadToEnd()
-    Write-JujuLog "stdout: $stdout"
-    Write-JujuLog "stderr: $stderr"
-
     return $p
 }
 

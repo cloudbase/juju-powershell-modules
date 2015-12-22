@@ -117,33 +117,6 @@ function Is-JujuMasterUnit {
     return (Check-Leader)
 }
 
-function Execute-Command {
-    <#
-    .SYNOPSIS
-     Execute-Command is a helper function that accepts a command as an array and returns the output of
-     that command as a string. Any error returned by the command will make it throw an exception. This function
-     should be used for launching native commands, not powershell commandlets.
-    .PARAMETER Command
-     Array containing the command and its arguments
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [Alias("Cmd")]
-        [array]$Command
-    )
-    PROCESS {
-        $ret = & $Command[0] $Command[1..$Command.Length]
-        if($LASTEXITCODE){
-            Throw ("Failed to run: " + ($Command -Join " "))
-        }
-        if($ret -and $ret.Length -gt 0){
-            return ($ret -as [string])
-        }
-        return $false
-    }
-}
-
 function Get-JujuCharmConfig {
     <#
     .SYNOPSIS
@@ -163,7 +136,7 @@ function Get-JujuCharmConfig {
             $cmd += $Scope
         }
 
-        return (Execute-Command -Cmd $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
     }
 }
 
@@ -207,7 +180,7 @@ function Get-JujuRelation {
         if ($Unit) {
             $cmd += $Unit
         }
-        return (Execute-Command -Cmd $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
     }
 }
 
@@ -243,7 +216,7 @@ function Set-JujuRelation {
         foreach ($i in $Settings.GetEnumerator()) {
            $cmd += $i.Name + "='" + $i.Value + "'"
         }
-        Execute-Command $cmd
+        Invoke-JujuCommand $cmd
         return $true
     }
 }
@@ -273,7 +246,7 @@ function Get-JujuRelationIds {
         if ($relationType) {
             $cmd += $relationType
         }
-        return (Execute-Command -Cmd $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
     }
 }
 
@@ -301,7 +274,7 @@ function Get-JujuRelatedUnits {
             $cmd += "-r" 
             $cmd += $relationId
         }
-        return (Execute-Command -Cmd $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
     }
 }
 
@@ -443,7 +416,7 @@ function Get-JujuUnit {
     )
     PROCESS {
         $cmd = @("unit-get.exe", "--format=json", $Attribute)
-        return (Execute-Command $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand $cmd | ConvertFrom-Json)
     }
 }
 
@@ -482,8 +455,8 @@ function Resolve-Address {
         if((Check-IP $Address)){
             return $Address
         }
-        $ip = ExecuteWith-Retry {
-            $return = Execute-Command -Command @("ipconfig", "/flushdns")
+        $ip = Start-ExecuteWithRetry {
+            $return = Invoke-JujuCommand -Command @("ipconfig", "/flushdns")
             $ip = ([system.net.dns]::GetHostAddresses($Address))[0].ipaddresstostring
             return $ip 
         }
@@ -595,164 +568,6 @@ function Get-JujuRelationParams {
     }
 }
 
-function Write-JujuLog {
-    <#
-    .SYNOPSIS
-     Write-JujuLog writes a line in the Juju log with the given log level
-    .PARAMETER LogLevel
-     LogLevel represents the logging level of the message
-    .PARAMETER Message
-     Message that is to get written to the log
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message,
-        [ValidateSet("TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")]
-        [string]$LogLevel="INFO"
-    )
-    PROCESS {
-        $cmd = @("juju-log.exe")
-        if($LogLevel -eq "DEBUG") {
-            $cmd += "--debug"
-        }
-        $cmd += $Message
-        $cmd += @("-l", $LogLevel.ToUpper())
-        $return = Execute-Command -Command $cmd
-    }
-}
-
-function Write-JujuDebug {
-    <#
-    .SYNOPSIS
-     Helper function that writes a log message with DEBUG log level.
-    .PARAMETER Message
-     The message that is to get written to the log
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message
-    )
-    PROCESS {
-        Write-JujuLog -Message $Message -LogLevel DEBUG
-    }
-}
-
-function Write-JujuTrace {
-    <#
-    .SYNOPSIS
-     Helper function that writes a log message with TRACE log level.
-    .PARAMETER Message
-     The message that is to get written to the log
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message
-    )
-    PROCESS {
-        Write-JujuLog -Message $Message -LogLevel TRACE
-    }
-}
-
-function Write-JujuInfo {
-    <#
-    .SYNOPSIS
-     Helper function that writes a log message with INFO log level.
-    .PARAMETER Message
-     The message that is to get written to the log
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message
-    )
-    PROCESS {
-        Write-JujuLog -Message $Message -LogLevel INFO
-    }
-}
-
-function Write-JujuWarning {
-    <#
-    .SYNOPSIS
-     Helper function that writes a log message with WARNING log level.
-    .PARAMETER Message
-     The message that is to get written to the log
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message
-    )
-    PROCESS {
-        Write-JujuLog -Message $Message -LogLevel WARNING
-    }
-}
-
-function Write-JujuCritical {
-    <#
-    .SYNOPSIS
-     Helper function that writes a log message with CRITICAL log level.
-    .PARAMETER Message
-     The message that is to get written to the log
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message
-    )
-    PROCESS {
-        Write-JujuLog -Message $Message -LogLevel CRITICAL
-    }
-}
-
-function Write-JujuErr {
-    <#
-    .SYNOPSIS
-     Helper function that writes a log message with ERROR log level.
-    .PARAMETER Message
-     The message that is to get written to the log
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message
-    )
-    PROCESS {
-        Write-JujuLog -Message $Msg -LogLevel ERROR
-    }
-}
-
-function Write-JujuError {
-    <#
-    .SYNOPSIS
-     Write an error level message to the juju log and optionally throw an exception using that same message.
-    .PARAMETER Message
-     Message to write to juju log
-    .PARAMETER Fatal
-     A boolean value that instructs the commandlet to throw an exception or not
-    .NOTES
-     Do not use this function. The recommended way of dealing with exceptions is to catch them in the hook itself.
-     Write your charm modules to only throw exceptions on fatal errors. Use try{}catch{} in your hook to log the actual
-     error.
-    #>
-    [Obsolete("This function is Obsolete. Please use Write-JujuErr")]
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [Alias("Msg")]
-        [string]$Message,
-        [bool]$Fatal=$true
-    )
-    PROCESS {
-        Write-JujuLog -Message $Msg -LogLevel ERROR
-        if ($Fatal) {
-            Throw $Msg
-        }
-    }
-}
-
 function ExitFrom-JujuHook {
     <#
     .SYNOPSIS
@@ -812,7 +627,7 @@ function Execute-JujuReboot {
     if ($Now) {
         $cmd += "--now"
     }
-    Execute-Command -Command $cmd
+    Invoke-JujuCommand -Command $cmd
 }
 
 # TODO
@@ -875,7 +690,7 @@ function Check-JujuPortRangeOpen{
     )
     PROCESS {
         $cmd = @("opened-ports.exe", "--format=json")
-        $openedPorts = Execute-Command $cmd | ConvertFrom-Json
+        $openedPorts = Invoke-JujuCommand $cmd | ConvertFrom-Json
 
         if (!$openedPorts) {
             return $false
@@ -938,7 +753,7 @@ function Open-JujuPort {
         }
         $cmd = @("open-port.exe", $port)
         try {
-            Execute-Command -Cmd $cmd | Out-Null
+            Invoke-JujuCommand -Cmd $cmd | Out-Null
         } catch {
             Write-JujuErr "Failed to open port $Port"
             if($Fatal){
@@ -976,7 +791,7 @@ function Close-JujuPort {
             Write-JujuInfo "Closing port $Port"
             $cmd = @("close-port.exe", $port)
             try {
-                Execute-Command -Command $cmd | Out-Null
+                Invoke-JujuCommand -Command $cmd | Out-Null
             } catch {
                 Write-JujuErr "Failed to close port."
                 Throw
@@ -1001,7 +816,7 @@ function Check-Leader {
     [CmdletBinding()]
     PROCESS {
         $cmd = @("is-leader.exe", "--format=json")
-        return (Execute-Command -Cmd $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
     }
 }
 
@@ -1024,7 +839,7 @@ function Set-LeaderData {
         foreach ($i in $params.GetEnumerator()) {
            $cmd += $i.Name + "=" + $i.Value
         }
-        Execute-Command $cmd | Out-Null
+        Invoke-JujuCommand $cmd | Out-Null
         return $true
     }
 }
@@ -1046,7 +861,7 @@ function Get-LeaderData {
         if ($Attribute) {
             $cmd += $Attribute
         }
-        return (Execute-Command -Cmd $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
     }
 }
 
@@ -1059,7 +874,7 @@ function Get-JujuVersion {
     [CmdletBinding()]
     PROCESS {
         $cmd = @("jujud.exe", "version")
-        $return = Execute-Command -Command $cmd
+        $return = Invoke-JujuCommand -Command $cmd
         $binaryVersion = $return.Split("-")
         if($binaryVersion.Count -eq 3){
             $details = @{
@@ -1125,7 +940,7 @@ function Set-JujuStatus {
             $cmd += $js
         }
         if ((Get-JujuStatus) -ne $Status) {
-            return Execute-Command -Cmd $cmd
+            return Invoke-JujuCommand -Cmd $cmd
         }
     }
 }
@@ -1143,7 +958,7 @@ function Get-JujuStatus {
     )
     PROCESS {
         $cmd = @("status-get.exe", "--include-data","--format=json")
-        $result = Execute-Command -Cmd $cmd | ConvertFrom-Json
+        $result = Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json
 
         if($Full){
             return $result
@@ -1171,7 +986,7 @@ function Get-JujuAction {
         if($ActionParam){
             $cmd += $ActionParam
         }
-        return (Execute-Command $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand $cmd | ConvertFrom-Json)
     }
 }
 
@@ -1193,7 +1008,7 @@ function Set-JujuAction {
         foreach($i in $Settings.GetEnumerator()){
             $cmd += ($i.key + "=" + $i.Value)
         }
-        Execute-Command -Command $cmd | Out-Null
+        Invoke-JujuCommand -Command $cmd | Out-Null
         return $true
     }
 }
@@ -1215,7 +1030,7 @@ function Fail-JujuAction {
         if ($Message) {
             $cmd += $Message
         }
-        Execute-Command $cmd | Out-Null
+        Invoke-JujuCommand $cmd | Out-Null
         return $true
     }
 }

@@ -163,8 +163,6 @@ function Get-SystemPath {
     }
 }
 
-# TESTABLE METHODS
-
 function Compare-ScriptBlocks {
     <#
     .SYNOPSIS

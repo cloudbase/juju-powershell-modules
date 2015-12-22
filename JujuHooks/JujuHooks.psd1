@@ -43,7 +43,7 @@ Copyright = '(c) 2015 Cloudbase Solutions SRL. All rights reserved.'
 Description = 'Helper module for Juju Charms'
 
 # Minimum version of the Windows PowerShell engine required by this module
-# PowerShellVersion = ''
+PowerShellVersion = '3'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
@@ -61,7 +61,7 @@ Description = 'Helper module for Juju Charms'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-# RequiredModules = @()
+RequiredModules = @("JujuHelper")
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -79,7 +79,7 @@ Description = 'Helper module for Juju Charms'
 # NestedModules = @("JujuHooks.psm1")
 
 # Functions to export from this module
-FunctionsToExport = "Check-ContextComplete","Get-JujuCharmDir","Has-JujuRelation","Get-JujuRelationType","Get-JujuRelationId","Get-JujuLocalUnit","Get-JujuRemoteUnit","Get-JujuServiceName","Is-JujuMasterUnit","Execute-Command","Get-JujuCharmConfig","Get-JujuRelation","Set-JujuRelation","Get-JujuRelationIds","Get-JujuRelatedUnits","Get-JujuRelationForUnit","Get-JujuRelationForId","Get-JujuRelationsOfType","Is-JujuRelationCreated","Get-JujuUnit","Check-IP","Resolve-Address","Get-JujuUnitPrivateIP","Get-JujuRelationContext{","Get-JujuRelationParams","Write-JujuLog","Write-JujuDebug","Write-JujuTrace","Write-JujuInfo","Write-JujuWarning","Write-JujuCritical","Write-JujuErr","Write-JujuError","ExitFrom-JujuHook","Execute-JujuReboot","Get-MainNetadapter","Get-PrimaryAdapterDNSServers","Check-JujuPortRangeOpen{","Is-JujuPortRangeOpen","Open-JujuPort","Close-JujuPort","Is-Leader","Check-Leader","Set-LeaderData","Get-LeaderData","Get-JujuVersion","Set-JujuStatus","Get-JujuStatus","Get-JujuAction","Set-JujuAction","Fail-JujuAction"
+FunctionsToExport = "Check-ContextComplete","Get-JujuCharmDir","Has-JujuRelation","Get-JujuRelationType","Get-JujuRelationId","Get-JujuLocalUnit","Get-JujuRemoteUnit","Get-JujuServiceName","Is-JujuMasterUnit","Get-JujuCharmConfig","Get-JujuRelation","Set-JujuRelation","Get-JujuRelationIds","Get-JujuRelatedUnits","Get-JujuRelationForUnit","Get-JujuRelationForId","Get-JujuRelationsOfType","Is-JujuRelationCreated","Get-JujuUnit","Check-IP","Resolve-Address","Get-JujuUnitPrivateIP","Get-JujuRelationContext{","Get-JujuRelationParams","Write-JujuLog","Write-JujuDebug","Write-JujuTrace","Write-JujuInfo","Write-JujuWarning","Write-JujuCritical","Write-JujuErr","Write-JujuError","ExitFrom-JujuHook","Execute-JujuReboot","Get-MainNetadapter","Get-PrimaryAdapterDNSServers","Check-JujuPortRangeOpen{","Is-JujuPortRangeOpen","Open-JujuPort","Close-JujuPort","Is-Leader","Check-Leader","Set-LeaderData","Get-LeaderData","Get-JujuVersion","Set-JujuStatus","Get-JujuStatus","Get-JujuAction","Set-JujuAction","Fail-JujuAction"
 # Cmdlets to export from this module
 CmdletsToExport = '*'
 
