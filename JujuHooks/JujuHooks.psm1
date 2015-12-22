@@ -572,24 +572,24 @@ function ExitFrom-JujuHook {
     <#
     .SYNOPSIS
      Please do not use this function. It is only present for backwards compatibility. It should never be used
-     in any charm code. Please use Execute-JujuReboot if you need to reboot the machine the charm is running on.
+     in any charm code. Please use Invoke-JujuReboot if you need to reboot the machine the charm is running on.
     .PARAMETER WithReboot
-     When $true, it will run Execute-JujuReboot -Now, instead of exit 0.
+     When $true, it will run Invoke-JujuReboot -Now, instead of exit 0.
     #>
-    [Obsolete("This function is obsolete. Please use Execute-JujuReboot")]
+    [Obsolete("This function is obsolete. Please use Invoke-JujuReboot")]
     [CmdletBinding()]
     Param(
         [switch]$WithReboot
     )
     PROCESS {
         if ($WithReboot -eq $true) {
-            Execute-JujuReboot -Now
+            Invoke-JujuReboot -Now
         }
         exit 0
     }
 }
 
-function Execute-JujuReboot {
+function Invoke-JujuReboot {
     <#
     .SYNOPSIS
      Request that the machine should reboot. This particular feature heavily used when installing windows
@@ -597,7 +597,7 @@ function Execute-JujuReboot {
      to happen, and will wait for any currently running hook to finish before acquiring the execution lock
      and executing a reboot. It also waits for any running container to shutdown.
     .PARAMETER Now
-     This parameter makes the Execute-JujuReboot commandlet to block until reboot is executed. It guarantees
+     This parameter makes the Invoke-JujuReboot commandlet to block until reboot is executed. It guarantees
      that if executed with the -Now parameter, your script will not continue after that point. You should take
      great care when using this option, as you might enter into a reboot loop.
      Omitting this option will schedule a reboot at the end of the currently running hook.
@@ -615,7 +615,7 @@ function Execute-JujuReboot {
         # before changes take effect
         if($result.RebootRequired){
             # Only reboot if we absolutely have to.
-            Execute-JujuReboot -Now
+            Invoke-JujuReboot -Now
         }
      }  
     #>

@@ -20,6 +20,8 @@ if ($version -lt 4){
     New-Alias -Name Get-ManagementObject -Value Get-CimInstance
 }
 
+$CharmStateKey = "HKLM:\SOFTWARE\Juju-Charms"
+
 function Get-IsNanoServer {
     <#
     .SYNOPSIS
@@ -161,6 +163,19 @@ function Convert-JujuUnitNameToNetbios {
 
 # New-Alias -Name Change-ServiceLogon -Value Set-ServiceLogon
 function Set-ServiceLogon {
+    <#
+    .SYNOPSIS
+    This function accepts a service or an array of services and sets the user under which the service should run.
+    .PARAMETER Services
+    An array of services to change startup user on. The values of the array can be a String, ManagementObject (returned by Get-WmiObject) or CimInstance (Returned by Get-CimInstance)
+    .PARAMETER UserName
+    The local or domain user to set as. Defaults to LocalSystem.
+    .PARAMETER Password
+    The password for the account.
+
+    .NOTES
+    The selected user account must have SeServiceLogonRight privilege.
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
@@ -196,210 +211,282 @@ function Set-ServiceLogon {
                     if ($ret.ReturnValue){
                         Throw "Failed to set service credentials: $ret"
                     }
-
+                }
+                default {
+                    Throw ("Invalid service type {0}" -f $i.GetType().Name)
                 }
             }
         }
     }
 }
 
-function Is-ServiceAlive {
+# New-Alias -Name Is-ServiceAlive -Value Get-ServiceIsRunning
+function Get-ServiceIsRunning {
+    <#
+    .SYNOPSIS
+    Checks if a service is running and returns a boolean value.
+    .PARAMETER ServiceName
+    The service name to check
+    #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$serviceName)
-
-    $service = Get-Service $serviceName
-    if ($service -and $service.Status -eq 'Running') {
-        Write-JujuLog "Service $serviceName is alive."
-        return $true
-    } else {
-        Write-JujuLog "Service $serviceName is dead."
+        [string]$ServiceName
+    )
+    PROCESS {
+        $service = Get-Service $ServiceName
+        if ($service) {
+            return ($service.Status -eq 'Running')
+        } 
         return $false
     }
 }
 
 function Install-Msi {
+    <#
+    .SYNOPSIS
+    Installs a MSI in unattended mode. If install fails an exception is thrown.
+    .PARAMETER Installer
+    Full path to the MSI installer
+    .PARAMETER LogFilePath
+    The path to the install log file.
+    #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$MsiFilePath,
-        [Parameter(Mandatory=$true)]
+        [Alias("MsiFilePath")]
+        [string]$Installer,
+        [Parameter(Mandatory=$false)]
         [string]$LogFilePath
-        )
-
-    $args = @(
-        "/i",
-        $MsiFilePath,
-        "/l*v",
-        $LogFilePath
-        )
-
-    $p = Start-Process -FilePath "msiexec" -Wait -PassThru -ArgumentList $args
-    if ($p.ExitCode -ne 0) {
-        Write-JujuLog "Failed to install MSI package."
-        Throw "Failed to install MSI package."
-    } else {
-        Write-JujuLog "Succesfully installed MSI package."
-    }
-
-}
-
-function Get-IPv4Subnet {
-    param(
-        [Parameter(Mandatory=$true)]
-        $IP,
-        [Parameter(Mandatory=$true)]
-        $Netmask
     )
+    PROCESS {
+        $args = @(
+            "/i",
+            $Installer,
+            "/q"
+            )
 
-    $class = 32
-    $netmaskClassDelimiter = "255"
-    $netmaskSplit = $Netmask -split "[.]"
-    $ipSplit = $IP -split "[.]"
-    for ($i = 0; $i -lt 4; $i++) {
-        if ($netmaskSplit[$i] -ne $netmaskClassDelimiter) {
-            $class -= 8
-            $ipSplit[$i] = "0"
+        if($LogFilePath){
+            $parent = Split-Path $LogFilePath -Parent
+            if(!(Test-Path $parent)){
+                New-Item -ItemType Directory $parent
+            }
+            $args += @("/l*v", $LogFilePath)
+        }
+
+        if (!(Test-Path $Installer)){
+            Throw "Could not find MSI installer at $Installer"
+        }
+        $p = Start-Process -FilePath "msiexec" -Wait -PassThru -ArgumentList $args
+        if ($p.ExitCode -ne 0) {
+            Throw "Failed to install MSI package."
         }
     }
-
-    $fullSubnet = ($ipSplit -join ".") + "/" + $class
-    return $fullSubnet
 }
 
 function Install-WindowsFeatures {
+    [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [array]$Features
     )
-
-    $rebootNeeded = $false
-    foreach ($feature in $Features) {
-        $state = ExecuteWith-Retry -Command {
-            Install-WindowsFeature -Name $feature -ErrorAction Stop
-        }
-        if ($state.Success -eq $true) {
-            if ($state.RestartNeeded -eq 'Yes') {
-                $rebootNeeded = $true
+    PROCESS {
+        $rebootNeeded = $false
+        foreach ($feature in $Features) {
+            $state = ExecuteWith-Retry -Command {
+                Install-WindowsFeature -Name $feature -ErrorAction Stop
             }
-        } else {
-            throw "Install failed for feature $feature"
+            if ($state.Success -eq $true) {
+                if ($state.RestartNeeded -eq 'Yes') {
+                    $rebootNeeded = $true
+                }
+            } else {
+                throw "Install failed for feature $feature"
+            }
+        }
+
+        if ($rebootNeeded -eq $true) {
+            Invoke-JujuReboot -Now
         }
     }
-
-    if ($rebootNeeded -eq $true) {
-        ExitFrom-JujuHook -WithReboot
-    }
 }
 
-function Get-CharmStateFullKeyPath () {
-    return ((Get-CharmStateKeyDir) + (Get-CharmStateKeyName))
-}
-
-function Get-CharmStateKeyDir () {
-    return "HKLM:\SOFTWARE\"
-}
-
-function Get-CharmStateKeyName () {
-    return "Juju-Charms"
-}
+# Get-CharmStateFullKeyPath
 
 function Set-CharmState {
+    <#
+    .SYNOPSIS
+    Sets persistent data the charm may need in the registry. This information is only relevant for the unit saving the data.
+    .PARAMETER Namespace
+    A prefix that gets added to the key
+    .PARAMETER Key
+    A key to identify the information by
+    .PARAMETER Value
+    The value we want to store. This must be a string.
+    #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$CharmName,
+        [Alias("CharmName")]
+        [string]$Namespace,
         [Parameter(Mandatory=$true)]
         [string]$Key,
         [Parameter(Mandatory=$true)]
-        [string]$Val
+        [Alias("Val")]
+        [string]$Value
     )
+    PROCESS {
+        $keyDirExists = Test-Path -Path $CharmStateKey
+        if ($keyDirExists -eq $false) {
+            $keyDir = Split-Path -Parent $CharmStateKey
+            $keyName = Split-Path -Leaf $CharmStateKey
+            New-Item -Path $keyDir -Name $keyName
+        }
 
-    $keyPath = Get-CharmStateFullKeyPath
-    $keyDirExists = Test-Path -Path $keyPath
-    if ($keyDirExists -eq $false) {
-        $keyDir = Get-CharmStateKeyDir
-        $keyName = Get-CharmStateKeyName
-        New-Item -Path $keyDir -Name $keyName
-    }
+        $fullKey = ($CharmName + $Key)
+        $property = New-ItemProperty -Path $CharmStateKey `
+                                     -Name $fullKey `
+                                     -Value $Val `
+                                     -PropertyType String `
+                                     -ErrorAction SilentlyContinue
 
-    $fullKey = ($CharmName + $Key)
-    $property = New-ItemProperty -Path $keyPath `
-                                 -Name $fullKey `
-                                 -Value $Val `
-                                 -PropertyType String `
-                                 -ErrorAction SilentlyContinue
-
-    if ($property -eq $null) {
-        Set-ItemProperty -Path $keyPath -Name $fullKey -Value $Val
+        if ($property -eq $null) {
+            Set-ItemProperty -Path $CharmStateKey -Name $fullKey -Value $Val
+        }
     }
 }
 
 function Get-CharmState {
+    <#
+    .SYNOPSIS
+    Gets persistent data stored by charm from registry. See Set-CharmState for more info.
+    .PARAMETER Namespace
+    A prefix that gets added to the key
+    .PARAMETER Key
+    A key to identify the information by
+    #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$CharmName,
+        [Alias("CharmName")]
+        [string]$Namespace,
         [Parameter(Mandatory=$true)]
         [string]$Key
     )
+    PROCESS {
+        $fullKey = ($CharmName + $Key)
+        $property = Get-ItemProperty -Path $CharmStateKey `
+                                     -Name $fullKey `
+                                     -ErrorAction SilentlyContinue
 
-    $keyPath = Get-CharmStateFullKeyPath
-    $fullKey = ($CharmName + $Key)
-    $property = Get-ItemProperty -Path $keyPath `
-                                 -Name $fullKey `
-                                 -ErrorAction SilentlyContinue
-
-    if ($property -ne $null) {
-        $state = Select-Object -InputObject $property -ExpandProperty $fullKey
-        return $state
-    } else {
-        return $null
+        if ($property) {
+            $state = Select-Object -InputObject $property -ExpandProperty $fullKey
+            return $state
+        }
+        return
     }
 }
 
 function Remove-CharmState {
+    <#
+    .SYNOPSIS
+    Clears charm persistent data from registry
+    .PARAMETER Namespace
+    A prefix that gets added to the key
+    .PARAMETER Key
+    A key to identify the information by
+    #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$CharmName,
+        [Alias("CharmName")]
+        [string]$Namespace,
         [Parameter(Mandatory=$true)]
         [string]$Key
     )
-
-    $keyPath = Get-CharmStateFullKeyPath
-    $fullKey = ($CharmName + $Key)
-    if (Get-CharmState $CharmName $Key) {
-        Remove-ItemProperty -Path $keyPath -Name $fullKey
+    PROCESS {
+        $keyPath = Get-CharmStateFullKeyPath
+        $fullKey = ($CharmName + $Key)
+        if (Get-CharmState $CharmName $Key) {
+            Remove-ItemProperty -Path $keyPath -Name $fullKey
+        }
     }
 }
 
 function Get-WindowsUser {
+    <#
+    .SYNOPSIS
+    Returns a CimInstance or a ManagementObject containing the Win32_Account representation of the requested username.
+    .PARAMETER Username
+    User name to lookup.
+    #>
+    [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)]
         [string]$Username
     )
+    PROCESS {
+        $u = Get-ManagementObject -Class "Win32_Account" `
+                                      -Filter ("Name='{0}'" -f $Username)
+        if (!$existentUser) {
+            Throw "User not found: $Username"
+        }
 
-    $existentUser = Get-WmiObject -Class "Win32_Account" `
-                                  -Filter "Name = '$Username'"
-    if ($existentUser -eq $null) {
-        Write-JujuLog "User not found."
+        return $u
     }
-
-    return $existentUser
 }
 
-
-function Convert-SIDToFriendlyName {
+# New-Alias -Name Convert-SIDToFriendlyName -Value Get-AccountNameFromSID
+function Get-AccountNameFromSID {
+    [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
         [string]$SID
     )
-
-    $objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
-    $objUser = $objSID.Translate( [System.Security.Principal.NTAccount])
-    $name = $objUser.Value
-    $n = $name.Split("\")
-    if ($n.length -gt 1){
-        return $n[1]
+    PROCESS {
+        $s = Get-ManagementObject -Class Win32_Account -Filter ("SID LIKE '{0}'" -f $SID)
+        if(!$s){
+            Throw "SID not found: $SID"
+        }
+        return $s.Name
     }
-    return $n[0]
+}
+
+function Get-GroupNameFromSID {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$SID
+    )
+    PROCESS {
+        $s = Get-ManagementObject -Class Win32_Group -Filter ("SID LIKE '{0}'" -f $SID)
+        if(!$s){
+            Throw "SID not found: $SID"
+        }
+        return $s.Name
+    }
+}
+
+function Get-AdministratorAccount {
+    <#
+    .SYNOPSIS
+    Helper function to return the local Administrator account name. This works with internationalized versions of Windows.
+    #>
+    PROCESS {
+        $SID = "S-1-5-21-%-500"
+        return Get-AccountNameFromSID -SID $SID
+    }
+}
+
+function Get-AdministratorsGroup {
+    <#
+    .SYNOPSIS
+    Helper function to get the local Administrators group. This works with internationalized versions of Windows.
+    #>
+    PROCESS {
+        $SID = "S-1-5-32-544"
+        return Get-GroupNameFromSID -SID $SID
+    }
 }
 
 function Check-Membership {
@@ -488,7 +575,7 @@ function Open-Ports {
             foreach ($port in $ports[$protocol]) {
                 # due to bug https://bugs.launchpad.net/juju-core/+bug/1427770,
                 # there is no way to get the ports opened by other units on
-                # the same node, thus we can have colisions
+                # the same node, thus we can have collisions
                 Open-JujuPort -Port "$port/$protocol" -Fatal $false
                 foreach ($direction in $directions) {
                     $ruleName = "Allow $direction Port $port/$protocol"
