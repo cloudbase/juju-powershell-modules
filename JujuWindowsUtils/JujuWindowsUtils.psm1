@@ -12,12 +12,19 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+$version = $PSVersionTable.PSVersion.Major
+if ($version -lt 4){
+    # Get-CimInstance is not supported on powershell versions earlier then 4
+    New-Alias -Name Get-ManagementObject -Value Get-WmiObject
+}else{
+    New-Alias -Name Get-ManagementObject -Value Get-CimInstance
+}
+
 function Get-IsNanoServer {
     <#
     .SYNOPSIS
-    Return a boolean value of $true if we are running on a nano server version.
+    Return a boolean value of $true if we are running on a Nano server version.
     #>
-    [CmdletBinding()]
     PROCESS {
         $k = "HKLM:Software\Microsoft\Windows NT\CurrentVersion\Server\ServerLevels"
         if (!(Test-Path $k)){
@@ -30,6 +37,28 @@ function Get-IsNanoServer {
 }
 
 function Start-ProcessRedirect {
+    <#
+    .SYNOPSIS
+    A helper function that allows executing a process with more advanced process diagnostics. It returns a System.Diagnostics.Proces
+    that gives you access to ExitCode, Stdout/StdErr.
+    .PARAMETER Filename
+    The executable to run
+    .PARAMETER Arguments
+    Arguments to pass to the executable
+    .PARAMETER Domain
+    Optionally, the process can be run as a domain user. This option allows you to specify the domain on which to run the command.
+    .PARAMETER Username
+    The username under which to run the command.
+    .PARAMETER Password
+    A SecureString encoded password.
+
+    .EXAMPLE
+    $p = Start-ProcessRedirect -Filename (Join-Path $PSHome powershell.exe) -Arguments @("-File", "C:\amazingPowershellScript.ps1")
+    $p.ExitCode
+    0
+    $p.StandardOutput.ReadToEnd()
+    whoami sais: desktop-dj170ar\JohnDoe
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -41,14 +70,15 @@ function Start-ProcessRedirect {
         [Parameter(Mandatory=$false)]
         [array]$Username,
         [Parameter(Mandatory=$false)]
-        $SecPassword
+        [Alias("SecPassword")]
+        [System.Security.SecureString]$Password
     )
     PROCESS {
         $pinfo = New-Object System.Diagnostics.ProcessStartInfo
         $pinfo.FileName = $Filename
         if ($Domain -ne $null) {
             $pinfo.Username = $Username
-            $pinfo.Password = $secPassword
+            $pinfo.Password = $Password
             $pinfo.Domain = $Domain
         }
         $pinfo.CreateNoWindow = $true
@@ -69,6 +99,15 @@ function Start-ProcessRedirect {
 
 # New-Alias -Name Is-ComponentInstalled -Value Get-ComponentIsInstalled
 function Get-ComponentIsInstalled {
+    <#
+    .SYNOPSIS
+    This commandlet checks if a program is installed and returns a boolean value. Exact product names must be used, wildcards are not accepted.
+    .PARAMETER Name
+    The name of the product to check for
+
+    .NOTES
+    This commandlet is not supported on Nano server
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
@@ -83,54 +122,83 @@ function Get-ComponentIsInstalled {
         }
     }
     PROCESS {
-        $version = $PSVersionTable.PSVersion.Major
-        if ($version -lt 4){
-            # Get-CimInstance is not supported on powershell versions earlier then 4
-            $products = Get-WmiObject -Class Win32_Product
-        }else{
-            $products = Get-CimInstance -Class Win32_Product
-        }
+        $products = Get-ManagementObject -Class Win32_Product
         $component = $products | Where-Object { $_.Name -eq $Name}
 
         return ($component -ne $null)
     }
 }
 
-function Get-JujuUnitName {
-    $jujuUnitNameNumber = (Get-JujuLocalUnit).split('/')
-    $jujuUnitName = ($jujuUnitNameNumber[0]).ToString()
-    $jujuUnitNumber = ($jujuUnitNameNumber[1]).ToString()
-    if (!$jujuUnitName -or !$jujuUnitNumber) {
-        Write-JujuError "Failed to get unit name and number" -Fatal $true
+# New-Alias -Name Get-JujuUnitName -Value Convert-JujuUnitToNetbios
+function Convert-JujuUnitNameToNetbios {
+    <#
+    .SYNOPSIS
+    In some cases juju spawns instances with names such as juju-openstack-unit-active-directory-0, which exceeds the maximum 15
+    characters allowed for netbios names. This commandlet returns a valid netbios name based on the charm name and unit number.
+    It is still not guaranteed to yield unique names, especially if the charms you are deploying have similar names larger then 15
+    characters, but it at least works some of the time.
+
+    .NOTES
+    If you have multiple charms with similar names larger then 15 characters, there is a chance that you will have multiple units
+    with the same netbios name. In most situations, this is not a problem. If you want to join them to Active Directory however,
+    it will become a problem. 
+    #>
+    PROCESS {
+        $jujuUnitNameNumber = (Get-JujuLocalUnit).split('/')
+        $jujuUnitName = ($jujuUnitNameNumber[0]).ToString()
+        $jujuUnitNumber = ($jujuUnitNameNumber[1]).ToString()
+        if (!$jujuUnitName -or !$jujuUnitNumber) {
+            Throw "Failed to get unit name and number"
+        }
+        $maxUnitNameLength = 15 - ($jujuUnitName.Length + $jujuUnitNumber.Length)
+        if ($maxUnitNameLength -lt 0) {
+            $jujuUnitName = $jujuUnitName.substring(0, ($jujuUnitName.Length + $maxUnitNameLength))
+        }
+        $netbiosName = $jujuUnitName + $jujuUnitNumber
+        return $netbiosName
     }
-    $maxUnitNameLength = 15 - ($jujuUnitName.Length + $jujuUnitNumber.Length)
-    if ($maxUnitNameLength -lt 0) {
-        $jujuUnitName = $jujuUnitName.substring(0, ($jujuUnitName.Length + $maxUnitNameLength))
-    }
-    $newHostname = $jujuUnitName + $jujuUnitNumber
-    return $newHostname
 }
 
-
-function Rename-Hostname {
-    $newHostname = Get-JujuUnitName
-    if ($env:computername -ne $newHostname) {
-        Rename-Computer -NewName $newHostname
-        ExitFrom-JujuHook -WithReboot
-    }
-}
-
-function Change-ServiceLogon {
+# New-Alias -Name Change-ServiceLogon -Value Set-ServiceLogon
+function Set-ServiceLogon {
+    [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
-        $Services,
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
+        [array]$Services,
         [Parameter(Mandatory=$true)]
         [string]$UserName,
         [Parameter(Mandatory=$false)]
-        $Password
+        [string]$Password=""
     )
+    PROCESS {
+        foreach ($i in $Services){
+            switch($i.GetType().Name){
+                "String" {
+                    $svc = Get-ManagementObject -Class Win32_Service -Filter ("Name='{0}'" -f $i)
+                    Set-ServiceLogon -Services $svc -UserName $UserName -Password $Password
+                }
+                "ManagementObject" {
+                    if ($i.CreationClassName -ne "Win32_Service"){
+                        Throw ("Invalid management object {0}. Expected: {1}" -f @($i.CreationClassName, "Win32_Service"))
+                    }
+                    $i.Change($null,$null,$null,$null,$null,$null,$UserName,$Password)
+                }
+                "CimInstance" {
+                    if ($i.CreationClassName -ne "Win32_Service"){
+                        Throw ("Invalid management object {0}. Expected: {1}" -f @($i.CreationClassName, "Win32_Service"))
+                    }
+                    $ret = Invoke-CimMethod -CimInstance $i `
+                                            -MethodName "Change" `
+                                            -Arguments @{"StartName"=$UserName;"StartPassword"=$Password;}
+                    if ($ret.ReturnValue){
+                        Throw "Failed to set service credentials: $ret"
+                    }
 
-    $Services | ForEach-Object { $_.Change($null,$null,$null,$null,$null,$null,$UserName,$Password) }
+                }
+            }
+        }
+        # $Services | ForEach-Object { $_.Change($null,$null,$null,$null,$null,$null,$UserName,$Password) }
+    }
 }
 
 function Is-ServiceAlive {
