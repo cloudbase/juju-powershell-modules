@@ -129,7 +129,7 @@ function Get-ComponentIsInstalled {
     }
 }
 
-# New-Alias -Name Get-JujuUnitName -Value Convert-JujuUnitToNetbios
+# New-Alias -Name Get-JujuUnitName -Value Convert-JujuUnitNameToNetbios
 function Convert-JujuUnitNameToNetbios {
     <#
     .SYNOPSIS
@@ -166,7 +166,7 @@ function Set-ServiceLogon {
         [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
         [array]$Services,
         [Parameter(Mandatory=$true)]
-        [string]$UserName,
+        [string]$UserName="LocalSystem",
         [Parameter(Mandatory=$false)]
         [string]$Password=""
     )
@@ -175,6 +175,9 @@ function Set-ServiceLogon {
             switch($i.GetType().Name){
                 "String" {
                     $svc = Get-ManagementObject -Class Win32_Service -Filter ("Name='{0}'" -f $i)
+                    if(!$svc){
+                        Throw ("Service named {0} could not be found" -f @($i))
+                    }
                     Set-ServiceLogon -Services $svc -UserName $UserName -Password $Password
                 }
                 "ManagementObject" {
@@ -197,7 +200,6 @@ function Set-ServiceLogon {
                 }
             }
         }
-        # $Services | ForEach-Object { $_.Change($null,$null,$null,$null,$null,$null,$UserName,$Password) }
     }
 }
 
