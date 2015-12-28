@@ -12,9 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-$utilsModulePath = Join-Path $PSScriptRoot "utils.psm1"
-Import-Module -Force -DisableNameChecking $utilsModulePath
-
 function Check-ContextComplete {
     <#
     .SYNOPSIS
@@ -473,7 +470,6 @@ function Get-JujuUnitPrivateIP {
     .SYNOPSIS
      A helper function to get the IPv4 representation (as string) of a units private-address
     #>
-    [CmdletBinding()]
     PROCESS {
         $addr = Get-JujuUnit -Attribute "private-address"
         return (Resolve-Address -Address $addr)
@@ -492,6 +488,7 @@ function Get-JujuRelationContext{
     .PARAMETER RequiredContext
      A hashtable consisting of the required parameters
     .EXAMPLE
+     # Sample context. This is the context that should all be non $null values when fetched from the "example" relation
      $context = {
         "private-address"=$null;
         "hostname"=$null;
@@ -602,7 +599,6 @@ function Invoke-JujuReboot {
      great care when using this option, as you might enter into a reboot loop.
      Omitting this option will schedule a reboot at the end of the currently running hook.
     .EXAMPLE
-
      # Check if feature is installed
      $isInstalled = Check-IfFeatureIsInstalled
      if(!$isInstalled){
@@ -640,7 +636,6 @@ function Get-MainNetadapter {
     case is the NIC that has the IP address that juju is aware of, configured. So if the IP address
     returned by Get-JujuUnitPrivateIP is configured on a NIC, that NIC is the primary one.
     #>
-    [CmdletBinding()]
     PROCESS {
         $unit_ip = unit_private_ip
         if (!$unit_ip) {
@@ -685,7 +680,7 @@ function Check-JujuPortRangeOpen{
     Param(
         [Parameter(Mandatory=$true)]
         [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
-        [string]$Port,
+        [string]$Port
 
     )
     PROCESS {
@@ -714,7 +709,7 @@ function Is-JujuPortRangeOpen {
     Param(
         [Parameter(Mandatory=$true)]
         [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
-        [string]$port,
+        [string]$port
 
     )
     PROCESS {
@@ -729,14 +724,11 @@ function Open-JujuPort {
     .PARAMETER Port
     TCP/UDP port or port range to open.
     .EXAMPLE
-    # Open a TCP port range of 1024 to 2048
-
-    Open-JujuPort -Port 1024-2048/TCP
-
+      # Open a TCP port range of 1024 to 2048
+      Open-JujuPort -Port 1024-2048/TCP
     .EXAMPLE
-    # Open single UDP port
-
-    Open-JujuPort -Port 1024/UDP
+      # Open single UDP port
+      Open-JujuPort -Port 1024/UDP
     #>
     [CmdletBinding()]
     Param(
@@ -770,14 +762,11 @@ function Close-JujuPort {
     .PARAMETER Port
     TCP/UDP port or port range to open.
     .EXAMPLE
-    # Close the TCP port range 1024-2048
-
-    Close-JujuPort -Port 1024-2048/TCP
-
+      # Close the TCP port range 1024-2048
+      Close-JujuPort -Port 1024-2048/TCP
     .EXAMPLE
-    # Close single UDP port
-
-    Close-JujuPort -Port 1024/UDP
+      # Close single UDP port
+      Close-JujuPort -Port 1024/UDP
     #>
     [CmdletBinding()]
     Param(
@@ -803,6 +792,7 @@ function Close-JujuPort {
 function Is-Leader {
     [CmdletBinding()]
     [Obsolete("This commandlet is obsolete. Please use Check-Leader instead")]
+    Param()
     PROCESS {
         return (Check-Leader)
     }
@@ -813,7 +803,6 @@ function Check-Leader {
     .SYNOPSIS
     Check if current unit is leader.
     #>
-    [CmdletBinding()]
     PROCESS {
         $cmd = @("is-leader.exe", "--format=json")
         return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
@@ -871,7 +860,6 @@ function Get-JujuVersion {
     Gets the unit jujud version. This is useful if you plan to enable or disable features
     based on jujud version.
     #>
-    [CmdletBinding()]
     PROCESS {
         $cmd = @("jujud.exe", "version")
         $return = Invoke-JujuCommand -Command $cmd
@@ -919,7 +907,7 @@ function Set-JujuStatus {
         [ValidateSet("maintenance", "blocked", "waiting", "active")]
         [string]$Status,
         [string]$Message,
-        [hashtable]$StatusData,
+        [hashtable]$StatusData
     ) 
     BEGIN {
         # StatusData will be supported in future juju releases. At the time
