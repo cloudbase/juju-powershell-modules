@@ -146,7 +146,6 @@ function Get-UserPath {
     .SYNOPSIS
     Returns the $env:PATH variable for the current user.
     #>
-    [CmdletBinding()]
     PROCESS {
         return [System.Environment]::GetEnvironmentVariable("PATH", "User")
     }
@@ -157,7 +156,6 @@ function Get-SystemPath {
     .SYNOPSIS
     Returns the system wide default $env:PATH.
     #>
-    [CmdletBinding()]
     PROCESS {
         return [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
     }
@@ -267,7 +265,7 @@ function Start-ExternalCommand {
             if(!$ErrorMessage){
                 Throw ("Command exited with status: {0}" -f $LASTEXITCODE)
             }
-            throw (("{0} (Exit code: $LASTEXITCODE)" -f $ErrorMessage)
+            throw ("{0} (Exit code: $LASTEXITCODE)" -f $ErrorMessage)
         }
         return $res
     }
@@ -545,7 +543,6 @@ function Get-SanePath {
     There are some situations in which the $env:PATH variable may contain duplicate paths. This function returns
     a sanitized $env:PATH without any duplicates.
     #>
-    [CmdletBinding()]
     PROCESS {
         $path = $env:PATH
         $arrayPath = $path.Split(';')
