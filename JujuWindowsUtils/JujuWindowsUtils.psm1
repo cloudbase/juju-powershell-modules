@@ -20,6 +20,7 @@ if ($version -lt 4){
     New-Alias -Name Get-ManagementObject -Value Get-CimInstance
 }
 
+$administratorsGroupSID = "S-1-5-32-544"
 $CharmStateKey = "HKLM:\SOFTWARE\Juju-Charms"
 
 function Get-IsNanoServer {
@@ -187,21 +188,21 @@ function Set-ServiceLogon {
     )
     PROCESS {
         foreach ($i in $Services){
-            switch($i.GetType().Name){
-                "String" {
+            switch($i.GetType().FullName){
+                "System.String" {
                     $svc = Get-ManagementObject -Class Win32_Service -Filter ("Name='{0}'" -f $i)
                     if(!$svc){
                         Throw ("Service named {0} could not be found" -f @($i))
                     }
                     Set-ServiceLogon -Services $svc -UserName $UserName -Password $Password
                 }
-                "ManagementObject" {
+                "System.Management.ManagementObject" {
                     if ($i.CreationClassName -ne "Win32_Service"){
                         Throw ("Invalid management object {0}. Expected: {1}" -f @($i.CreationClassName, "Win32_Service"))
                     }
                     $i.Change($null,$null,$null,$null,$null,$null,$UserName,$Password)
                 }
-                "CimInstance" {
+                "Microsoft.Management.Infrastructure.CimInstance" {
                     if ($i.CreationClassName -ne "Win32_Service"){
                         Throw ("Invalid management object {0}. Expected: {1}" -f @($i.CreationClassName, "Win32_Service"))
                     }
@@ -413,7 +414,8 @@ function Remove-CharmState {
     }
 }
 
-function Get-WindowsUser {
+# New-Alias -Name Get-WindowsUser -Value Get-AccountObjectByName
+function Get-AccountObjectByName {
     <#
     .SYNOPSIS
     Returns a CimInstance or a ManagementObject containing the Win32_Account representation of the requested username.
@@ -427,43 +429,148 @@ function Get-WindowsUser {
     )
     PROCESS {
         $u = Get-ManagementObject -Class "Win32_Account" `
-                                      -Filter ("Name='{0}'" -f $Username)
+                                  -Filter ("Name='{0}'" -f $Username)
         if (!$existentUser) {
             Throw "User not found: $Username"
         }
-
         return $u
+    }
+}
+
+# New-Alias -Name Get-WindowsGroup -Value Get-GroupObjectByName
+function Get-GroupObjectByName {
+    <#
+    .SYNOPSIS
+    Returns a CimInstance or a ManagementObject containing the Win32_Group representation of the requested group name.
+    .PARAMETER GroupName
+    Group name to lookup.
+    #>
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory=$true)]
+        [string]$GroupName
+    )
+    PROCESS {
+        $g = Get-ManagementObject -Class "Win32_Group" `
+                                  -Filter ("Name='{0}'" -f $GroupName)
+        if (!$existentUser) {
+            Throw "Group not found: $GroupName"
+        }
+        return $g
+    }
+}
+
+function Get-AccountObjectBySID {
+    <#
+    .SYNOPSIS
+    This will return a Win32_UserAccount object. If running on a system with powershell >= 4, this will be a CimInstance.
+    Systems running powershell <= 3 will return a ManagementObject.
+    .PARAMETER SID
+    The SID of the user we want to find
+    .PARAMETER Exact
+    This is $true by default. If set to $false, the query will use the 'LIKE' operator instead of '=' when filtering for users.
+    .NOTES
+    If $Exact is $false, multiple account objects may be returned.
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$SID,
+        [Parameter(Mandatory=$false)]
+        [switch]$Exact=$true
+    )
+    PROCESS {
+        $modifier = " LIKE "
+        if ($Exact){
+            $modifier = "="
+        }
+        $query = ("SID{0}'{1}'" -f @($modifier, $SID))
+        $s = Get-ManagementObject -Class Win32_UserAccount -Filter $query
+        if(!$s){
+            Throw "SID not found: $SID"
+        }
+        return $s
+    }
+}
+
+function Get-GroupObjectBySID {
+    <#
+    .SYNOPSIS
+    This will return a win32_group object. If running on a system with powershell >= 4, this will be a CimInstance.
+    Systems running powershell <= 3 will return a ManagementObject.
+    .PARAMETER SID
+    The SID of the user we want to find
+    .PARAMETER Exact
+    This is $true by default. If set to $false, the query will use the 'LIKE' operator instead of '='.
+    .NOTES
+    If $Exact is $false, multiple win32_account objects may be returned.
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$SID,
+        [Parameter(Mandatory=$false)]
+        [switch]$Exact=$true
+    )
+    PROCESS {
+        $modifier = " LIKE "
+        if ($Exact){
+            $modifier = "="
+        }
+        $query = ("SID{0}'{1}'" -f @($modifier, $SID))
+        $s = Get-ManagementObject -Class Win32_Group -Filter $query
+        if(!$s){
+            Throw "SID not found: $SID"
+        }
+        return $s
     }
 }
 
 # New-Alias -Name Convert-SIDToFriendlyName -Value Get-AccountNameFromSID
 function Get-AccountNameFromSID {
+    <#
+    .SYNOPSIS
+    This function exists for compatibility. Please use Get-AccountObjectBySID.
+    .PARAMETER SID
+    The SID of the user we want to find
+    .PARAMETER Exact
+    This is $true by default. If set to $false, the query will use the 'LIKE' operator instead of '='.
+    .NOTES
+    If $Exact is $false, multiple account objects may be returned.
+    #>
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [string]$SID
+        [string]$SID,
+        [Parameter(Mandatory=$false)]
+        [switch]$Exact=$true
     )
     PROCESS {
-        $s = Get-ManagementObject -Class Win32_Account -Filter ("SID LIKE '{0}'" -f $SID)
-        if(!$s){
-            Throw "SID not found: $SID"
-        }
-        return $s.Name
+        # Get-AccountObjectBySID will throw an exception if an account is not found
+        return (Get-AccountObjectBySID -SID $SID -Exact:$Exact).Name
     }
 }
 
 function Get-GroupNameFromSID {
+    <#
+    .SYNOPSIS
+    This function exists for compatibility. Please use Get-GroupObjectBySID.
+    .PARAMETER SID
+    The SID of the group we want to find
+    .PARAMETER Exact
+    This is $true by default. If set to $false, the query will use the 'LIKE' operator instead of '='.
+    .NOTES
+    If $Exact is $false, multiple win32_group objects may be returned.
+    #>
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true)]
-        [string]$SID
+        [string]$SID,
+        [Parameter(Mandatory=$false)]
+        [switch]$Exact=$true
     )
     PROCESS {
-        $s = Get-ManagementObject -Class Win32_Group -Filter ("SID LIKE '{0}'" -f $SID)
-        if(!$s){
-            Throw "SID not found: $SID"
-        }
-        return $s.Name
+        return (Get-GroupObjectBySID -SID $SID -Exact:$Exact).Name
     }
 }
 
@@ -474,7 +581,7 @@ function Get-AdministratorAccount {
     #>
     PROCESS {
         $SID = "S-1-5-21-%-500"
-        return Get-AccountNameFromSID -SID $SID
+        return Get-AccountNameFromSID -SID $SID -Exact:$false
     }
 }
 
@@ -484,113 +591,179 @@ function Get-AdministratorsGroup {
     Helper function to get the local Administrators group. This works with internationalized versions of Windows.
     #>
     PROCESS {
-        $SID = "S-1-5-32-544"
-        return Get-GroupNameFromSID -SID $SID
+        return Get-GroupNameFromSID -SID $administratorsGroupSID
     }
 }
 
-function Check-Membership {
+# New-Alias -Name Check-Membership -Value Get-UserGroupMembership
+function Get-UserGroupMembership {
+    <#
+    .SYNOPSIS
+    Checks whether or not a user is part of a particular local group.
+    .PARAMETER Username
+    The username to verify
+    .PARAMETER GroupSID
+    The SID of the group we want to check if the user is part of.
+    #>
+    [CmdletBinding()]
     Param (
         [Parameter(Mandatory=$true)]
-        [string]$User,
+        [Alias("User")]
+        [string]$Username,
         [Parameter(Mandatory=$true)]
         [string]$GroupSID
     )
-
-    $group = Get-CimInstance -ClassName Win32_Group  `
-                -Filter "SID = '$GroupSID'"
-    $ret = Get-CimAssociatedInstance -InputObject $group `
-          -ResultClassName Win32_UserAccount | Where-Object `
-                                               { $_.Name -eq $User }
-    return $ret
+    PROCESS {
+        $group = Get-GroupObjectBySID -SID $GroupSID
+        switch($group.GetType().FullName){
+            "Microsoft.Management.Infrastructure.CimInstance" {
+                $ret = Get-CimAssociatedInstance -InputObject $group `
+                                                 -ResultClassName Win32_UserAccount | Where-Object { $_.Name -eq $Username }
+            }
+            "System.Management.ManagementObject" {
+                $ret = $group.GetRelated("Win32_UserAccount") | Where-Object {$_.Name -eq $Username}
+            }
+            default {
+                Throw ("Invalid group object type {0}" -f $group.GetType().FullName)
+            }
+        }   
+        return ($ret -ne $null)
+    }
 }
 
 function Create-LocalAdmin {
+    <#
+    .SYNOPSIS
+    Create a local user account and add it to the local Administrators group. This works with internationalized versions of Windows as well.
+    .PARAMETER Username
+    The user name of the new user
+    .PARAMETER Password
+    The password the user will authenticate with
+    .NOTES
+    This commandlet creates an administrator user that never expires, and which is not required to reset the password on first logon.
+    #>
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$LocalAdminUsername,
+        [Alias("LocalAdminUsername")]
+        [string]$Username,
         [Parameter(Mandatory=$true)]
-        [string]$LocalAdminPassword
+        [Alias("LocalAdminPassword")]
+        [string]$Password
     )
-
-    Add-WindowsUser $LocalAdminUsername $LocalAdminPassword
-
-    $administratorsGroupSID = "S-1-5-32-544"
-    $isLocalAdmin = Check-Membership $LocalAdminUsername $administratorsGroupSID
-    $groupName = Convert-SIDToFriendlyName -SID $administratorsGroupSID
-    if (!$isLocalAdmin) {
-        Execute-ExternalCommand -Command {
-            net.exe localgroup $groupName $LocalAdminUsername /add
-        } -ErrorMessage "Failed to add user to local admins group."
-    } else {
-        Juju-Log "User is already in the administrators group."
+    PROCESS {
+        Add-WindowsUser $Username $Password | Out-Null
+        $isLocalAdmin = Get-UserGroupMembership -User $Username -GroupSID $administratorsGroupSID
+        if (!$isLocalAdmin) {
+            $groupName = Get-AdministratorsGroup
+            $cmd = @("net.exe", "localgroup", $groupName, $Username, "/add")
+            Invoke-JujuCommand -Command $cmd | Out-Null
+        }
     }
 }
 
 function Add-WindowsUser {
+    <#
+    .SYNOPSIS
+    Creates a new local Windows account.
+    .PARAMETER Username
+    The user name of the new user
+    .PARAMETER Password
+    The password the user will authenticate with
+    .NOTES
+    This commandlet creates a local user that never expires, and which is not required to reset the password on first logon.
+    #>
+    [CmdletBinding()]
     param(
         [parameter(Mandatory=$true)]
         [string]$Username,
         [parameter(Mandatory=$true)]
         [string]$Password
     )
-
-    $existentUser = Get-WindowsUser $Username
-    if ($existentUser -eq $null) {
-        $computer = [ADSI]"WinNT://$env:computername"
-        $user = $computer.Create("User", $Username)
-        $user.SetPassword($Password)
-        $user.SetInfo()
-        $user.FullName = $Username
-        $user.SetInfo()
-        # UserFlags = Logon script | Normal user | No pass expiration
-        $user.UserFlags = 1 + 512 + 65536
-        $user.SetInfo()
-    } else {
-        Execute-ExternalCommand -Command {
-            $computername = hostname.exe
-            $user = [ADSI] "WinNT://$computerName/$Username,User"
-            $user.SetPassword($Password)
-        } -ErrorMessage "Failed to update user password."
+    PROCESS {
+        $existentUser = Get-AccountObjectByName $Username
+        $cmd = @("net.exe", "user", $Username)
+        if (!$existentUser) {
+            $cmd += @($Password, "/add", "/expires:never", "/active:yes")
+        } else {
+            $cmd += $Password
+        }
+        Invoke-JujuCommand -Command $cmd | Out-Null
     }
 }
 
 function Delete-WindowsUser {
+    <#
+    .SYNOPSIS
+    Delete a local Windows user.
+    .PARAMETER Username
+    The user we want to delete
+    #>
+    [CmdletBinding()]
     param(
         [parameter(Mandatory=$true)]
         [string]$Username
     )
-
-    Execute-ExternalCommand -Command {
-        NET.EXE USER $Username '/DELETE'
-    } -ErrorMessage "Failed to delete user."
+    PROCESS {
+        $userExists = Get-AccountObjectByName $Username
+        if ($userExists) {
+            $cmd = @("net.exe", "user", $Username, "/delete")
+            Invoke-JujuCommand -Command $cmd | Out-Null
+        }
+    }
 }
 
 function Open-Ports {
-    Param($ports)
+    <#
+    .SYNOPSIS
+    Helper function that opens IaaS provider firewall as well as local firewall ports.
+    .PARAMETER Ports
+    A hashtable containing ports that should be open both in the IaaS provider firewall (ie: security groups in OpenStack) and in the local firewall.
+    .PARAMETER Fatal
+    Deprecated option. Is set to $true by default and will be removed in the future. All errors opening ports should fail.
 
-    $directions = @("Inbound", "Outbound")
-    try {
-        foreach ($protocol in $ports.Keys) {
-            foreach ($port in $ports[$protocol]) {
-                # due to bug https://bugs.launchpad.net/juju-core/+bug/1427770,
-                # there is no way to get the ports opened by other units on
-                # the same node, thus we can have collisions
-                Open-JujuPort -Port "$port/$protocol" -Fatal $false
-                foreach ($direction in $directions) {
-                    $ruleName = "Allow $direction Port $port/$protocol"
-                    if (!(Get-NetFirewallRule $ruleName `
-                            -ErrorAction SilentlyContinue)) {
-                        New-NetFirewallRule -DisplayName $ruleName `
-                            -Name $ruleName `
-                            -Direction $direction -LocalPort $port `
-                            -Protocol $protocol -Action Allow
+    .EXAMPLE
+
+    $ports = @{
+        "tcp" = @(1024, 587, 465);
+        "udp" = @(69, 139);
+    }
+
+    Open-Ports -Ports $ports
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [hashtable]$Ports,
+        [Parameter(Mandatory=$false)]
+        [Obsolete("This parameter is obsolete and will be removed in the future.")]
+        [bool]$Fatal=$true
+    )
+    PROCESS {
+        $directions = @("Inbound", "Outbound")
+        try {
+            foreach ($protocol in $ports.Keys) {
+                foreach ($port in $ports[$protocol]) {
+                    # due to bug https://bugs.launchpad.net/juju-core/+bug/1427770,
+                    # there is no way to get the ports opened by other units on
+                    # the same node, thus we can have collisions
+                    Open-JujuPort -Port "$port/$protocol" -Fatal $Fatal
+                    foreach ($direction in $directions) {
+                        $ruleName = "Allow $direction Port $port/$protocol"
+                        if (!(Get-NetFirewallRule $ruleName `
+                                -ErrorAction SilentlyContinue)) {
+                            New-NetFirewallRule -DisplayName $ruleName `
+                                -Name $ruleName `
+                                -Direction $direction -LocalPort $port `
+                                -Protocol $protocol -Action Allow
+                        }
                     }
                 }
             }
+        } catch {
+            Write-JujuErr ("Failed to open ports: {0}" -f $_.Exception.Message)
+            Throw
         }
-    } catch {
-        Write-JujuError "Failed to open ports."
     }
 }
 
