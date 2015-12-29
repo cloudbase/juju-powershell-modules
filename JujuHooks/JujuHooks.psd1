@@ -79,7 +79,7 @@ RequiredModules = @("JujuHelper", "JujuLoging")
 # NestedModules = @("JujuHooks.psm1")
 
 # Functions to export from this module
-FunctionsToExport = "Check-ContextComplete","Get-JujuCharmDir","Has-JujuRelation","Get-JujuRelationType","Get-JujuRelationId","Get-JujuLocalUnit","Get-JujuRemoteUnit","Get-JujuServiceName","Is-JujuMasterUnit","Get-JujuCharmConfig","Get-JujuRelation","Set-JujuRelation","Get-JujuRelationIds","Get-JujuRelatedUnits","Get-JujuRelationForUnit","Get-JujuRelationForId","Get-JujuRelationsOfType","Is-JujuRelationCreated","Get-JujuUnit","Check-IP","Resolve-Address","Get-JujuUnitPrivateIP","Get-JujuRelationContext","Get-JujuRelationParams","Write-JujuLog","Write-JujuDebug","Write-JujuTrace","Write-JujuInfo","Write-JujuWarning","Write-JujuCritical","Write-JujuErr","Write-JujuError","ExitFrom-JujuHook","Invoke-JujuReboot","Get-MainNetadapter","Get-PrimaryAdapterDNSServers","Check-JujuPortRangeOpen","Is-JujuPortRangeOpen","Open-JujuPort","Close-JujuPort","Is-Leader","Check-Leader","Set-LeaderData","Get-LeaderData","Get-JujuVersion","Set-JujuStatus","Get-JujuStatus","Get-JujuAction","Set-JujuAction","Fail-JujuAction"
+FunctionsToExport = "Confirm-ContextComplete","Get-JujuCharmDir","Confirm-JujuRelation","Get-JujuRelationType","Get-JujuRelationId","Get-JujuLocalUnit","Get-JujuRemoteUnit","Get-JujuServiceName","Confirm-JujuMasterUnit","Get-JujuCharmConfig","Get-JujuRelation","Set-JujuRelation","Get-JujuRelationIds","Get-JujuRelatedUnits","Get-JujuRelationForUnit","Get-JujuRelationForId","Get-JujuRelationsOfType","Confirm-JujuRelationCreated","Get-JujuUnit","Confirm-IP","Resolve-Address","Get-JujuUnitPrivateIP","Get-JujuRelationContext{","Get-JujuRelationParams","Exit-FromJujuHook","Invoke-JujuReboot","Get-MainNetadapter","Get-PrimaryAdapterDNSServers","Confirm-JujuPortRangeOpen","Open-JujuPort","Close-JujuPort","Confirm-Leader","Set-LeaderData","Get-LeaderData","Get-JujuVersion","Set-JujuStatus","Get-JujuStatus","Get-JujuAction","Set-JujuAction","Set-JujuActionFailed"
 # Cmdlets to export from this module
 CmdletsToExport = '*'
 
@@ -87,7 +87,7 @@ CmdletsToExport = '*'
 VariablesToExport = '*'
 
 # Aliases to export from this module
-AliasesToExport = "charm_dir","in_relation_hook","relation_type","relation_id","local_unit","remote_unit","service_name","is_master_unit","charm_config","relation_get","relation_set","relation_ids","related_units","relation_for_unit","relations_for_id","relations_of_type","is_relation_made","unit_get","unit_private_ip"
+AliasesToExport = "Is-Leader","Check-ContextComplete","Has-JujuRelation","Is-JujuMasterUnit","Is-JujuRelationCreated","Check-IP","ExitFrom-JujuHook","Check-JujuPortRangeOpen","Is-JujuPortRangeOpen","Check-Leader","Fail-JujuAction","charm_dir","in_relation_hook","relation_type","relation_id","local_unit","remote_unit","service_name","is_master_unit","charm_config","relation_get","relation_set","relation_ids","related_units","relation_for_unit","relations_for_id","relations_of_type","is_relation_made","unit_get","unit_private_ip"
 
 # List of all modules packaged with this module
 # ModuleList = @()

@@ -12,10 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-function Check-ContextComplete {
+function Confirm-ContextComplete {
     <#
     .SYNOPSIS
-     Check-ContextComplete loops through the provided context and returns either $true or $false. If any item
+     Loops through the provided context and returns either $true or $false. If any item
      in the context is empty, $null or $false, the context is incomplete and this will return $false.
     .PARAMETER Context
      This parameter holds the context to be checked. Contexts must be hashtables.
@@ -48,7 +48,7 @@ function Get-JujuCharmDir {
     return ${env:CHARM_DIR}
 }
 
-function Has-JujuRelation {
+function Confirm-JujuRelation {
     if (Get-JujuRelationType){
         return $true
     }
@@ -101,17 +101,17 @@ function Get-JujuServiceName {
     return ("jujud-{0}" -f $localUnit)
 }
 
-function Is-JujuMasterUnit {
+function Confirm-JujuMasterUnit {
     <#
     .SYNOPSIS
-     This function is deprecated and should not be used. Please use Check-Leader instead
+     This function is deprecated and should not be used. Please use Confirm-Leader instead
     #>
-    [Obsolete("This cmdlet is obsolete. Please use Check-Leader instead.")]
+    [Obsolete("This cmdlet is obsolete. Please use Confirm-Leader instead.")]
     [CmdletBinding()]
     Param(
         [string]$PeerRelationName
     )
-    return (Check-Leader)
+    return (Confirm-Leader)
 }
 
 function Get-JujuCharmConfig {
@@ -364,7 +364,7 @@ function Get-JujuRelationsOfType {
     }
 }
 
-function Is-JujuRelationCreated {
+function Confirm-JujuRelationCreated {
     <#
     .SYNOPSIS
      Determine whether or not the relation has been made.
@@ -417,7 +417,7 @@ function Get-JujuUnit {
     }
 }
 
-function Check-IP {
+function Confirm-IP {
     <#
     .SYNOPSIS
      Check if the parameter passed as a string, is a valid IPv4 address
@@ -449,7 +449,7 @@ function Resolve-Address {
         [string]$Address
     )
     PROCESS {
-        if((Check-IP $Address)){
+        if((Confirm-IP $Address)){
             return $Address
         }
         $ip = Start-ExecuteWithRetry {
@@ -519,7 +519,7 @@ function Get-JujuRelationContext{
                         $ctx[$key] = Get-JujuRelation -attr $RequiredContext[$key] `
                                      -rid $rid -unit $unit
                     }
-                    $complete = Check-ContextComplete -Context $ctx
+                    $complete = Confirm-ContextComplete -Context $ctx
                     if ($complete) {
                         return $ctx
                     }
@@ -565,7 +565,7 @@ function Get-JujuRelationParams {
     }
 }
 
-function ExitFrom-JujuHook {
+function Exit-FromJujuHook {
     <#
     .SYNOPSIS
      Please do not use this function. It is only present for backwards compatibility. It should never be used
@@ -669,7 +669,7 @@ function Get-PrimaryAdapterDNSServers {
     return $dnsServers
 }
 
-function Check-JujuPortRangeOpen{
+function Confirm-JujuPortRangeOpen {
     <#
     .SYNOPSIS
     Check if the given port or port range is open
@@ -699,24 +699,6 @@ function Check-JujuPortRangeOpen{
     }
 }
 
-function Is-JujuPortRangeOpen {
-    <#
-    .SYNOPSIS
-    Obsolete. Please use Check-JujuPortRangeOpen
-    #>
-    [CmdletBinding()]
-    [Obsolete("This function is obsolete. Please use Check-JujuPortRangeOpen")]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
-        [string]$port
-
-    )
-    PROCESS {
-        return (Check-JujuPortRangeOpen -Port $port)
-    }
-}
-
 function Open-JujuPort {
     <#
     .SYNOPSIS
@@ -739,7 +721,7 @@ function Open-JujuPort {
         [bool]$Fatal=$true
     )
     PROCESS {
-        $isOpen = Check-JujuPortRangeOpen -Port $Port
+        $isOpen = Confirm-JujuPortRangeOpen -Port $Port
         if ($isOpen){
             return $true
         }
@@ -775,7 +757,7 @@ function Close-JujuPort {
         [string]$Port
     )
     PROCESS {
-        $isOpen = Check-JujuPortRangeOpen -Port $Port
+        $isOpen = Confirm-JujuPortRangeOpen -Port $Port
         if ($isOpen) {
             Write-JujuInfo "Closing port $Port"
             $cmd = @("close-port.exe", $port)
@@ -789,16 +771,7 @@ function Close-JujuPort {
     }
 }
 
-function Is-Leader {
-    [CmdletBinding()]
-    [Obsolete("This commandlet is obsolete. Please use Check-Leader instead")]
-    Param()
-    PROCESS {
-        return (Check-Leader)
-    }
-}
-
-function Check-Leader {
+function Confirm-Leader {
     <#
     .SYNOPSIS
     Check if current unit is leader.
@@ -1001,7 +974,7 @@ function Set-JujuAction {
     }
 }
 
-function Fail-JujuAction {
+function Set-JujuActionFailed {
     <#
     .SYNOPSIS
     Fail the current running action.
@@ -1023,16 +996,28 @@ function Fail-JujuAction {
     }
 }
 
+# Backwards compatible aliases
+New-Alias -Name Check-ContextComplete -Value Confirm-ContextComplete
+New-Alias -Name Has-JujuRelation -Value Confirm-JujuRelation
+New-Alias -Name Is-JujuMasterUnit -Value Confirm-JujuMasterUnit
+New-Alias -Name Is-JujuRelationCreated -Value Confirm-JujuRelationCreated
+New-Alias -Name Check-IP -Value Confirm-IP
+New-Alias -Name ExitFrom-JujuHook -Value Exit-FromJujuHook
+New-Alias -Name Check-JujuPortRangeOpen -Value Confirm-JujuPortRangeOpen
+New-Alias -Name Is-JujuPortRangeOpen -Value Confirm-JujuPortRangeOpen
+New-Alias -Name Check-Leader -Value Confirm-Leader
+New-Alias -Name Is-Leader -Value Confirm-Leader
+New-Alias -Name Fail-JujuAction -Value Set-JujuActionFailed
 
 #Python/Bash like function aliases
 New-Alias -Name charm_dir -Value Get-JujuCharmDir
-New-Alias -Name in_relation_hook -Value Has-JujuRelation
+New-Alias -Name in_relation_hook -Value Confirm-JujuRelation
 New-Alias -Name relation_type -Value Get-JujuRelationType
 New-Alias -Name relation_id -Value Get-JujuRelationId
 New-Alias -Name local_unit -Value Get-JujuLocalUnit
 New-Alias -Name remote_unit -Value Get-JujuRemoteUnit
 New-Alias -Name service_name -Value Get-JujuServiceName
-New-Alias -Name is_master_unit -Value Is-JujuMasterUnit
+New-Alias -Name is_master_unit -Value Confirm-JujuMasterUnit
 New-Alias -Name charm_config -Value Get-JujuCharmConfig
 New-Alias -Name relation_get -Value Get-JujuRelation
 New-Alias -Name relation_set -Value Set-JujuRelation
@@ -1041,6 +1026,6 @@ New-Alias -Name related_units -Value Get-JujuRelatedUnits
 New-Alias -Name relation_for_unit -Value Get-JujuRelationForUnit
 New-Alias -Name relations_for_id -Value Get-JujuRelationsForId
 New-Alias -Name relations_of_type -Value Get-JujuRelationsOfType
-New-Alias -Name is_relation_made -Value Is-JujuRelationCreated
+New-Alias -Name is_relation_made -Value Confirm-JujuRelationCreated
 New-Alias -Name unit_get -Value Get-JujuUnit
 New-Alias -Name unit_private_ip -Value Get-JujuUnitPrivateIP

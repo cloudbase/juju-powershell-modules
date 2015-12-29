@@ -631,7 +631,8 @@ function Get-UserGroupMembership {
     }
 }
 
-function Create-LocalAdmin {
+# New-Alias -Name Create-LocalAdmin -Value New-LocalAdmin
+function New-LocalAdmin {
     <#
     .SYNOPSIS
     Create a local user account and add it to the local Administrators group. This works with internationalized versions of Windows as well.
@@ -692,7 +693,8 @@ function Add-WindowsUser {
     }
 }
 
-function Delete-WindowsUser {
+# New-Alias -Name Delete-WindowsUser -Value Remove-WindowsUser
+function Remove-WindowsUser {
     <#
     .SYNOPSIS
     Delete a local Windows user.
