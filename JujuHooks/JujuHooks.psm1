@@ -996,7 +996,137 @@ function Set-JujuActionFailed {
     }
 }
 
+function Convert-JujuUnitNameToNetbios {
+    <#
+    .SYNOPSIS
+    In some cases juju spawns instances with names such as juju-openstack-unit-active-directory-0, which exceeds the maximum 15
+    characters allowed for netbios names. This commandlet returns a valid netbios name based on the charm name and unit number.
+    It is still not guaranteed to yield unique names, especially if the charms you are deploying have similar names larger then 15
+    characters, but it at least works some of the time.
+
+    .NOTES
+    If you have multiple charms with similar names larger then 15 characters, there is a chance that you will have multiple units
+    with the same netbios name. In most situations, this is not a problem. If you want to join them to Active Directory however,
+    it will become a problem. 
+    #>
+    PROCESS {
+        $jujuUnitNameNumber = (Get-JujuLocalUnit).split('/')
+        $jujuUnitName = ($jujuUnitNameNumber[0]).ToString()
+        $jujuUnitNumber = ($jujuUnitNameNumber[1]).ToString()
+        if (!$jujuUnitName -or !$jujuUnitNumber) {
+            Throw "Failed to get unit name and number"
+        }
+        $maxUnitNameLength = 15 - ($jujuUnitName.Length + $jujuUnitNumber.Length)
+        if ($maxUnitNameLength -lt 0) {
+            $jujuUnitName = $jujuUnitName.substring(0, ($jujuUnitName.Length + $maxUnitNameLength))
+        }
+        $netbiosName = $jujuUnitName + $jujuUnitNumber
+        return $netbiosName
+    }
+}
+
+function Set-CharmState {
+    <#
+    .SYNOPSIS
+    Sets persistent data the charm may need in the registry. This information is only relevant for the unit saving the data.
+    .PARAMETER Namespace
+    A prefix that gets added to the key
+    .PARAMETER Key
+    A key to identify the information by
+    .PARAMETER Value
+    The value we want to store. This must be a string.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [Alias("CharmName")]
+        [string]$Namespace,
+        [Parameter(Mandatory=$true)]
+        [string]$Key,
+        [Parameter(Mandatory=$true)]
+        [Alias("Val")]
+        [string]$Value
+    )
+    PROCESS {
+        $keyDirExists = Test-Path -Path $CharmStateKey
+        if ($keyDirExists -eq $false) {
+            $keyDir = Split-Path -Parent $CharmStateKey
+            $keyName = Split-Path -Leaf $CharmStateKey
+            New-Item -Path $keyDir -Name $keyName
+        }
+
+        $fullKey = ($CharmName + $Key)
+        $property = New-ItemProperty -Path $CharmStateKey `
+                                     -Name $fullKey `
+                                     -Value $Val `
+                                     -PropertyType String `
+                                     -ErrorAction SilentlyContinue
+
+        if ($property -eq $null) {
+            Set-ItemProperty -Path $CharmStateKey -Name $fullKey -Value $Val
+        }
+    }
+}
+
+function Get-CharmState {
+    <#
+    .SYNOPSIS
+    Gets persistent data stored by charm from registry. See Set-CharmState for more info.
+    .PARAMETER Namespace
+    A prefix that gets added to the key
+    .PARAMETER Key
+    A key to identify the information by
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [Alias("CharmName")]
+        [string]$Namespace,
+        [Parameter(Mandatory=$true)]
+        [string]$Key
+    )
+    PROCESS {
+        $fullKey = ($CharmName + $Key)
+        $property = Get-ItemProperty -Path $CharmStateKey `
+                                     -Name $fullKey `
+                                     -ErrorAction SilentlyContinue
+
+        if ($property) {
+            $state = Select-Object -InputObject $property -ExpandProperty $fullKey
+            return $state
+        }
+        return
+    }
+}
+
+function Remove-CharmState {
+    <#
+    .SYNOPSIS
+    Clears charm persistent data from registry
+    .PARAMETER Namespace
+    A prefix that gets added to the key
+    .PARAMETER Key
+    A key to identify the information by
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)]
+        [Alias("CharmName")]
+        [string]$Namespace,
+        [Parameter(Mandatory=$true)]
+        [string]$Key
+    )
+    PROCESS {
+        $keyPath = Get-CharmStateFullKeyPath
+        $fullKey = ($CharmName + $Key)
+        if (Get-CharmState $CharmName $Key) {
+            Remove-ItemProperty -Path $keyPath -Name $fullKey
+        }
+    }
+}
+
 # Backwards compatible aliases
+New-Alias -Name Get-JujuUnitName -Value Convert-JujuUnitNameToNetbios
 New-Alias -Name Check-ContextComplete -Value Confirm-ContextComplete
 New-Alias -Name Has-JujuRelation -Value Confirm-JujuRelation
 New-Alias -Name Is-JujuMasterUnit -Value Confirm-JujuMasterUnit

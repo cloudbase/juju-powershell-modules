@@ -504,39 +504,6 @@ function Invoke-FastWebRequest {
     }
 }
 
-function Expand-ZipArchive {
-    <#
-    .SYNOPSIS
-    Helper function to unzip a file. This function should work on all modern windows versions, including Windows Server Nano.
-    .PARAMETER ZipFile
-    The path to the zip archive
-    .PARAMETER Destination
-    The destination folder into which to unarchive the zipfile.
-    #>
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true)]
-        [string]$ZipFile,
-        [Parameter(Mandatory=$true)]
-        [string]$Destination
-    )
-    PROCESS {
-        try {
-            # This will work on Windows 10/Windows Server 2016.
-            Expand-Archive -Path $ZipFile -DestinationPath $Destination
-        } catch [System.Management.Automation.CommandNotFoundException] {
-            try {
-                # Try without loading system.io.compression.filesystem. This will work by default on Nano
-                [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipFile, $Destination)
-            }catch [System.Management.Automation.RuntimeException] {
-                # Load system.io.compression.filesystem. This will work on the full version of Windows Server
-                Add-Type -assembly "system.io.compression.filesystem"
-                [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipFile, $Destination)
-            }
-        }
-    }
-}
-
 function Get-SanePath {
     <#
     .SYNOPSIS
