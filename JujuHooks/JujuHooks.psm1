@@ -94,11 +94,11 @@ function Get-JujuRemoteUnit {
 function Get-JujuServiceName {
     <#
     .SYNOPSIS
-     Get-JujuServiceName returns the local service name for the current running iunit. The name
+     Get-JujuServiceName returns the local service name for the current running unit. The name
      is determined based on the rules currently used in juju-core for defining services on Windows.
     #>
-    $localUnit = (Get-JujuLocalUnit).Split("/")[0]
-    return ("jujud-{0}" -f $localUnit)
+    $localUnit = (Get-JujuLocalUnit).Split("/")
+    return ("jujud-{0}-{1}" -f $localUnit)
 }
 
 function Confirm-JujuMasterUnit {
@@ -129,11 +129,18 @@ function Get-JujuCharmConfig {
     )
     PROCESS {
         $cmd = @("config-get.exe", "--format=json")
-        if ($Scope -ne $null){
+        if ($Scope){
             $cmd += $Scope
         }
-
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
+        $obj = (Invoke-JujuCommand -Command $cmd | ConvertFrom-Json)
+        if($Scope) {
+            return $obj
+        }
+        $ret = @{}
+        foreach ($i in $obj.psobject.properties) {
+            $ret[$i.Name] = $i.Value
+        }
+        return $ret
     }
 }
 
@@ -168,7 +175,12 @@ function Get-JujuRelation {
         if ($RelationId) {
             $cmd += "-r"
             $cmd += $RelationId
+        }else{
+            if(!(Get-JujuRelationId)){
+                Throw "Could not find relation ID"
+            }
         }
+
         if ($Attribute) {
             $cmd += $Attribute
         } else {
@@ -176,8 +188,20 @@ function Get-JujuRelation {
         }
         if ($Unit) {
             $cmd += $Unit
+        }else {
+            if(!(Get-JujuRemoteUnit)){
+                Throw "Could not find remote unit name"
+            }
         }
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
+        $obj = (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
+        if($Attribute){
+            return $obj
+        }
+        $ret = @{}
+        foreach ($i in $obj.psobject.properties) {
+            $ret[$i.Name] = $i.Value
+        }
+        return $ret
     }
 }
 
@@ -202,6 +226,7 @@ function Set-JujuRelation {
         [Alias("Relation_Id")]
         [string]$RelationId=$null,
         [Alias("Relation_Settings")]
+        [Parameter(Mandatory=$true)]
         [Hashtable]$Settings=@{}
     )
     PROCESS {
@@ -209,11 +234,15 @@ function Set-JujuRelation {
         if ($RelationId) {
             $cmd += "-r"
             $cmd += $RelationId
+        } else {
+            if(!(Get-JujuRelationId)){
+                Throw "Could not determine relation ID"
+            }
         }
         foreach ($i in $Settings.GetEnumerator()) {
            $cmd += $i.Name + "='" + $i.Value + "'"
         }
-        Invoke-JujuCommand $cmd
+        Invoke-JujuCommand $cmd | Out-Null
         return $true
     }
 }
@@ -240,9 +269,10 @@ function Get-JujuRelationIds {
             $relationType = Get-JujuRelationType
         }
 
-        if ($relationType) {
-            $cmd += $relationType
+        if (!$relationType) {
+            Throw "No relation type found"
         }
+        $cmd += $relationType
         return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
     }
 }
@@ -512,7 +542,7 @@ function Get-JujuRelationContext{
         $relations = Get-JujuRelationIds -Relation $Relation
         foreach($rid in $relations){
             $related_units = Get-JujuRelatedUnits -RelationId $rid
-            if (($related_units -ne $null) -and ($related_units.Count -gt 0)) {
+            if ($related_units -and ($related_units.Count -gt 0)) {
                 foreach ($unit in $related_units) {
                     $ctx = @{}
                     foreach ($key in $RequiredContext.Keys) {
