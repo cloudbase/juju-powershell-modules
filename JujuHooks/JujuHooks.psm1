@@ -291,16 +291,17 @@ function Get-JujuRelatedUnits {
     )
     PROCESS {
         $cmd = @("relation-list.exe", "--format=json")
-        if ($RelId) {
-            $relationId = $RelId
+        if ($RelationId) {
+            $r = $RelationId
         } else {
-            $relationId = Get-JujuRelationId
+            $r = Get-JujuRelationId
         }
 
-        if ($relationId){
-            $cmd += "-r" 
-            $cmd += $relationId
+        if (!$r){
+            Throw "Missing relation ID"
         }
+        $cmd += "-r" 
+        $cmd += $r
         return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
     }
 }
@@ -308,7 +309,7 @@ function Get-JujuRelatedUnits {
 function Get-JujuRelationForUnit {
     <#
     .SYNOPSIS
-     Get the json represenation of a unit's relation
+     Get unit relation information
     .PARAMETER Unit
      Unit name for which you want to get relation data. This parameter is optional, and will default
      to the remote unit that triggered the relation hook.
@@ -323,18 +324,17 @@ function Get-JujuRelationForUnit {
     )
 
     PROCESS {
-        if ($Unit){
-            $unitName = $Unit
-        }else{
-            $unitName = Get-JujuRemoteUnit
-        }
-        $relation = Get-JujuRelation -Unit $unitName -Rid $Rid
+        $relation = Get-JujuRelation -Unit $Unit -RelationId $RelationId
+        # create a temporary hashtable. Cannot modify a hashtable we are iterating through.
+        $new = @{}
         foreach ($i in $relation.GetEnumerator()) {
             if ($i.Name.EndsWith("-list")) {
-                $relation[$i.Name] = $relation[$i.Name].Split()
+                $new[$i.Name] = $relation[$i.Name].Split()
+            } else {
+                $new[$i.Name] = $relation[$i.Name]
             }
         }
-        return $relation
+        return $new
     }
 }
 
@@ -347,18 +347,19 @@ function Get-JujuRelationForId {
     #>
     [CmdletBinding()]
     Param(
+        [Parameter(Mandatory=$true)]
         [Alias("RelId")]
         [string]$RelationId=$null
     )
     PROCESS {
-        $relationData = @{}
-        if (!$RelationId) {
-            $RelationId = Get-JujuRelationIds
-        }
+        $relationData = @()
+
         $relatedUnits = Get-JujuRelatedUnits -RelationId $RelationId
         foreach ($i in $relatedUnits) {
             $unitData = Get-JujuRelationForUnit -Unit $i -RelationId $RelationId
-            $unitData['RelationId'] = $RelationId
+            # The double underscore is not quite powershell standard, but it should be safe enough
+            # to not overwrite any user set information
+            $unitData['__unit__'] = $i
             $relationData += $unitData
         }
         return $relationData
@@ -378,15 +379,17 @@ function Get-JujuRelationsOfType {
         [string]$Relation=$null
     )
     PROCESS {
-        $relationData = @{}
+        $relationData = @()
         if (!$Relation) {
             $Relation = Get-JujuRelationType
+            if(!$Relation) {
+                Throw "Could not find relation"
+            }
         }
         $relationIds = Get-JujuRelationIds -Relation $Relation
         foreach ($i in $relationIds) {
-            $relForId = Get-JujuRelationsForId $i
+            $relForId = Get-JujuRelationForId $i
             foreach ($j in $relForId) {
-                $j['RelationId'] = $i
                 $relationData += $j
             }
         }
@@ -460,6 +463,13 @@ function Confirm-IP {
         [string]$IP
     )
     PROCESS {
+        if($IP.Contains(":")) {
+            return ($IP -as [ipaddress]) -as [bool]
+        }
+        $l = $IP.Split('.')
+        if($l.Count -ne 4){
+            return $false
+        }
         return ($IP -as [ipaddress]) -as [bool]
     }
 }
@@ -502,6 +512,9 @@ function Get-JujuUnitPrivateIP {
     #>
     PROCESS {
         $addr = Get-JujuUnit -Attribute "private-address"
+        if((Confirm-IP $addr)){
+            return $addr
+        }
         return (Resolve-Address -Address $addr)
     }
 }
@@ -540,23 +553,36 @@ function Get-JujuRelationContext{
     )
     PROCESS {
         $relations = Get-JujuRelationIds -Relation $Relation
-        foreach($rid in $relations){
-            $related_units = Get-JujuRelatedUnits -RelationId $rid
-            if ($related_units -and ($related_units.Count -gt 0)) {
-                foreach ($unit in $related_units) {
-                    $ctx = @{}
-                    foreach ($key in $RequiredContext.Keys) {
-                        $ctx[$key] = Get-JujuRelation -attr $RequiredContext[$key] `
-                                     -rid $rid -unit $unit
-                    }
-                    $complete = Confirm-ContextComplete -Context $ctx
-                    if ($complete) {
-                        return $ctx
-                    }
-                }
+        $relData = Get-JujuRelationsOfType -Relation $Relation
+        foreach($r in $relData) {
+            $ctx = @{}
+            foreach($i in $RequiredContext.Keys){
+                $ctx[$i] = $r[$i]
             }
+            $complete = Confirm-ContextComplete -Context $ctx
+            if(!$complete) {
+                continue
+            }
+            return $ctx
         }
         return @{}
+        # foreach($rid in $relations){
+        #     $related_units = Get-JujuRelatedUnits -RelationId $rid
+        #     if ($related_units -and ($related_units.Count -gt 0)) {
+        #         foreach ($unit in $related_units) {
+        #             $ctx = @{}
+        #             foreach ($key in $RequiredContext.Keys) {
+        #                 $ctx[$key] = Get-JujuRelation -attr $RequiredContext[$key] `
+        #                              -rid $rid -unit $unit
+        #             }
+        #             $complete = Confirm-ContextComplete -Context $ctx
+        #             if ($complete) {
+        #                 return $ctx
+        #             }
+        #         }
+        #     }
+        # }
+        # return @{}
     }
 }
 
@@ -656,8 +682,6 @@ function Invoke-JujuReboot {
     Invoke-JujuCommand -Command $cmd
 }
 
-# TODO
-
 # TODO(gabriel-samfira): Move this to separate module
 function Get-MainNetadapter {
     <#
@@ -667,13 +691,12 @@ function Get-MainNetadapter {
     returned by Get-JujuUnitPrivateIP is configured on a NIC, that NIC is the primary one.
     #>
     PROCESS {
-        $unit_ip = unit_private_ip
+        $unit_ip = Get-JujuUnitPrivateIP
         if (!$unit_ip) {
             Throw "Failed to get unit IP"
         }
 
-        $iface = Get-NetIPAddress | Where-Object `
-            { $_.IPAddress -match $unit_ip -and $_.AddressFamily -eq "IPv4" }
+        $iface = Get-NetIPAddress | Where-Object { $_.IPAddress -match $unit_ip -and $_.AddressFamily -eq "IPv4" }
         if ($iface) {
             $ifaceAlias = $iface.InterfaceAlias
             if ($ifaceAlias) {
@@ -1184,7 +1207,7 @@ New-Alias -Name relation_set -Value Set-JujuRelation
 New-Alias -Name relation_ids -Value Get-JujuRelationIds
 New-Alias -Name related_units -Value Get-JujuRelatedUnits
 New-Alias -Name relation_for_unit -Value Get-JujuRelationForUnit
-New-Alias -Name relations_for_id -Value Get-JujuRelationsForId
+New-Alias -Name relations_for_id -Value Get-JujuRelationForId
 New-Alias -Name relations_of_type -Value Get-JujuRelationsOfType
 New-Alias -Name is_relation_made -Value Confirm-JujuRelationCreated
 New-Alias -Name unit_get -Value Get-JujuUnit
