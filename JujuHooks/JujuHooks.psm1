@@ -755,7 +755,7 @@ function Open-JujuPort {
     PROCESS {
         $isOpen = Confirm-JujuPortRangeOpen -Port $Port
         if ($isOpen){
-            return $true
+            return
         }
         $cmd = @("open-port.exe", $port)
         try {
@@ -790,15 +790,15 @@ function Close-JujuPort {
     )
     PROCESS {
         $isOpen = Confirm-JujuPortRangeOpen -Port $Port
-        if ($isOpen) {
-            Write-JujuInfo "Closing port $Port"
-            $cmd = @("close-port.exe", $port)
-            try {
-                Invoke-JujuCommand -Command $cmd | Out-Null
-            } catch {
-                Write-JujuErr "Failed to close port."
-                Throw
-            }
+        if (!$isOpen) {
+            return
+        }
+        $cmd = @("close-port.exe", $port)
+        try {
+            Invoke-JujuCommand -Command $cmd | Out-Null
+        } catch {
+            Write-JujuErr "Failed to close port."
+            Throw
         }
     }
 }
@@ -820,6 +820,8 @@ function Set-LeaderData {
     Sets the given parameters as leader data.
     .PARAMETER Settings
     A hashtable containing the parameters to set.
+    .NOTES
+    Make sure that all values are shell parse-able. This function does not do automatic escaping.
     #>
     [CmdletBinding()]
     Param(
@@ -830,11 +832,10 @@ function Set-LeaderData {
     PROCESS {
         $cmd = @("leader-set.exe")
 
-        foreach ($i in $params.GetEnumerator()) {
+        foreach ($i in $Settings.GetEnumerator()) {
            $cmd += $i.Name + "=" + $i.Value
         }
         Invoke-JujuCommand $cmd | Out-Null
-        return $true
     }
 }
 
@@ -855,7 +856,15 @@ function Get-LeaderData {
         if ($Attribute) {
             $cmd += $Attribute
         }
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
+        $obj = (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
+        if ($Attribute){
+            return $obj
+        }
+        $ret = @{}
+        foreach ($i in $obj.psobject.properties) {
+            $ret[$i.Name] = $i.Value
+        }
+        return $ret
     }
 }
 

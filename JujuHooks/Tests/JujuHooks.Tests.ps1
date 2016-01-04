@@ -735,7 +735,7 @@ Describe "Test Invoke-JujuReboot" {
                 Throw "Invalid command"
             }
         }
-        It "Should not send the --now flag" {
+        It "Should send the --now flag" {
             Invoke-JujuReboot -Now | Should BeNullOrEmpty
         }
     }
@@ -793,6 +793,10 @@ Describe "Test Open-JujuPort" {
         Param (
             [array]$Command
         )
+        $p = $Command[-1]
+        if($p -eq "999/tcp"){
+            Throw "bogus error"
+        }
         $expect = @("open-port.exe")
         if((Compare-Object $Command ($expect += $Command[-1]))) {
             Throw "Invalid command"
@@ -806,9 +810,240 @@ Describe "Test Open-JujuPort" {
         $p += $Command[-1]
         $env:OpenedPortsTest = $p
     }
-    Mock Write-JujuErr -Verifiable {}
-    It "Should open port" {
+    Mock Write-JujuErr -Verifiable -ModuleName JujuHooks {
+        Param(
+            [Parameter(Mandatory=$true)]
+            [string]$Message
+        )
+    }
+    It "Should return if port already open" {
         $env:OpenedPortsTest = @("1024/tcp")
-        Open-JujuPort -Port "1024/tcp" | Should Be $true 
+        Open-JujuPort -Port "1024/tcp" | Should BeNullOrEmpty
+    }
+    It "Should open a new port" {
+        $env:OpenedPortsTest = @("1/tcp")
+        Open-JujuPort -Port "1024/tcp" | Should BeNullOrEmpty
+        $env:OpenedPortsTest.Split() | Should Be @("1/tcp", "1024/tcp")
+    }
+    It "Should throw an exception" {
+        $env:OpenedPortsTest = @("1/tcp")
+        { Open-JujuPort -Port "999/tcp" } | Should Throw
+        Assert-VerifiableMocks
     }
 }
+
+Describe "Test Close-JujuPort" {
+    AfterEach {
+        Clear-Environment
+    }
+    Mock Confirm-JujuPortRangeOpen -ModuleName JujuHooks {
+        Param(
+            [Parameter(Mandatory=$true)]
+            [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
+            [string]$Port
+
+        )
+        $p = $env:OpenedPortsTest.Split()
+        foreach ($i in $p){
+            if ($Port -eq $i){
+                return $true
+            }
+        }
+        return $false
+    }
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $p = $Command[-1]
+        if($p -eq "999/tcp"){
+            Throw "bogus error"
+        }
+        $expect = @("close-port.exe")
+        if((Compare-Object $Command ($expect += $Command[-1]))) {
+            Throw "Invalid command"
+        }
+        $p = @()
+        $found = $false
+        foreach($i in $env:OpenedPortsTest.Split()) {
+            if ($i -eq $Command[-1]){
+                $found = $true
+                continue
+            }
+            $p += $i
+        }
+        if(!$found){
+            Throw "No such port"
+        }
+        $env:OpenedPortsTest = $p
+    }
+    Mock Write-JujuErr -Verifiable -ModuleName JujuHooks {
+        Param(
+            [Parameter(Mandatory=$true)]
+            [string]$Message
+        )
+    }
+    It "Should close a port" {
+        $env:OpenedPortsTest = @("1/tcp", "1024/tcp")
+        Close-JujuPort -Port "1024/tcp" | Should BeNullOrEmpty
+        $env:OpenedPortsTest.Split() | Should Be @("1/tcp")
+    }
+    It "Should return if port not open" {
+        $env:OpenedPortsTest = @("1/tcp")
+        Close-JujuPort -Port "1024/tcp" | Should BeNullOrEmpty
+        $env:OpenedPortsTest.Split() | Should Be @("1/tcp")
+    }
+    It "Should throw an exception" {
+        $env:OpenedPortsTest = @("1/tcp", "999/tcp")
+        { Close-JujuPort -Port "999/tcp" } | Should Throw
+        Assert-VerifiableMocks
+    }
+}
+
+Describe "Test Confirm-Leader" {
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $expect = @("is-leader.exe", "--format=json")
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+        return '"True"'
+    }
+    It "Should return True" {
+        Confirm-Leader | Should Be $true
+    }
+}
+
+Describe "Test Set-LeaderData" {
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $expect = @("leader-set.exe", "hello=world", "password=secret")
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+    }
+    It "Should send proper parameters to leader-set" {
+        $data = @{
+            "hello"="world";
+            "password"="secret";
+        }
+        Set-LeaderData -Settings $data | Should BeNullOrEmpty
+    }
+    It "Should throw an exception on invalid data" {
+        { Set-LeaderData -Settings "bogus" } | Should Throw
+        { Set-LeaderData -Settings @(1,2,3) } | Should Throw
+    }
+}
+
+Describe "Test Get-LeaderData" {
+    Context "Call Get-LeaderData with no attributes" {
+        Mock Invoke-JujuCommand -ModuleName JujuHooks {
+            Param (
+                [array]$Command
+            )
+            $expect = @("leader-get.exe", "--format=json")
+            if((Compare-Object $Command $expect)) {
+                Throw "Invalid command"
+            }
+            return '{"bogus": "data", "hello": "world"}'
+        }
+        It "Should return leader data" {
+            $r = Get-LeaderData
+            $r.GetType() | Should Be "Hashtable"
+            $r["bogus"] | Should Be "data"
+            $r["hello"] | Should Be "world"
+            $r.Keys.Count | Should Be 2
+        }
+    }
+    Context "Call Get-LeaderData with attribute" {
+        Mock Invoke-JujuCommand -ModuleName JujuHooks {
+            Param (
+                [array]$Command
+            )
+            $expect = @("leader-get.exe", "--format=json")
+            if((Compare-Object $Command ($expect += $Command[-1]))) {
+                Throw "Invalid command"
+            }
+            $data = @{
+                "hello"='"world"';
+            }
+            $r = $data[$Command[-1]]
+            if(!$r){
+                return ''
+            }
+            return $data[$Command[-1]]
+        }
+        It "Should return world" {
+            Get-LeaderData -Attribute "hello" | Should Be "world"
+        }
+        It "Should return empty" {
+            Get-LeaderData -Attribute "empty" | Should BeNullOrEmpty
+        }
+    }
+}
+
+Describe "Test Get-JujuVersion" {
+    AfterEach {
+        Clear-Environment
+    }
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $expect = @("jujud.exe", "version")
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+        return $env:binVersion
+    }
+    Mock Write-JujuWarning -Verifiable -ModuleName JujuHooks {
+        Param(
+            [Parameter(Mandatory=$true)]
+            [string]$Message
+        )
+    }
+    It "Should return hashtable with 4 fields (development release)" {
+        $env:binVersion = "1.25.1-alpha1-win2012r2-amd64"
+        $r = Get-JujuVersion
+        $r.Keys.Count | Should Be 4
+        $r["version"] | Should Be "1.25.1"
+        $r["subversion"] | Should Be "alpha1"
+        $r["series"] | Should Be "win2012r2"
+        $r["arch"] | Should Be "amd64"
+        Assert-VerifiableMocks
+    }
+    It "Should return a hashtable with 3 fields (production)" {
+        $env:binVersion = "1.25.1-win2012r2-amd64"
+        $r = Get-JujuVersion
+        $r.Keys.Count | Should Be 3
+        $r["version"] | Should Be "1.25.1"
+        $r["series"] | Should Be "win2012r2"
+        $r["arch"] | Should Be "amd64"
+    }
+    It "Should Throw an exception" {
+        $env:binVersion = "1.25.1"
+        { Get-JujuVersion } | Should Throw
+    }
+}
+
+Describe "Test Set-JujuStatus" {}
+
+Describe "Test Get-JujuStatus" {}
+
+Describe "Test Get-JujuAction" {}
+
+Describe "Test Set-JujuAction" {}
+
+Describe "Test Set-JujuActionFailed" {}
+
+Describe "Test Convert-JujuUnitNameToNetbios" {}
+
+Describe "Test Set-CharmState" {}
+
+Describe "Test Get-CharmState" {}
+
+Describe "Test Remove-CharmState" {}
