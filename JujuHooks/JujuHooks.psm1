@@ -357,9 +357,6 @@ function Get-JujuRelationForId {
         $relatedUnits = Get-JujuRelatedUnits -RelationId $RelationId
         foreach ($i in $relatedUnits) {
             $unitData = Get-JujuRelationForUnit -Unit $i -RelationId $RelationId
-            # The double underscore is not quite powershell standard, but it should be safe enough
-            # to not overwrite any user set information
-            $unitData['__unit__'] = $i
             $relationData += $unitData
         }
         return $relationData
@@ -519,7 +516,7 @@ function Get-JujuUnitPrivateIP {
     }
 }
 
-function Get-JujuRelationContext{
+function Get-JujuRelationContext {
     <#
     .SYNOPSIS
      This function gets the context for a particular relation and returns a hashtable
@@ -552,7 +549,6 @@ function Get-JujuRelationContext{
         [Hashtable]$RequiredContext
     )
     PROCESS {
-        $relations = Get-JujuRelationIds -Relation $Relation
         $relData = Get-JujuRelationsOfType -Relation $Relation
         foreach($r in $relData) {
             $ctx = @{}
@@ -566,23 +562,6 @@ function Get-JujuRelationContext{
             return $ctx
         }
         return @{}
-        # foreach($rid in $relations){
-        #     $related_units = Get-JujuRelatedUnits -RelationId $rid
-        #     if ($related_units -and ($related_units.Count -gt 0)) {
-        #         foreach ($unit in $related_units) {
-        #             $ctx = @{}
-        #             foreach ($key in $RequiredContext.Keys) {
-        #                 $ctx[$key] = Get-JujuRelation -attr $RequiredContext[$key] `
-        #                              -rid $rid -unit $unit
-        #             }
-        #             $complete = Confirm-ContextComplete -Context $ctx
-        #             if ($complete) {
-        #                 return $ctx
-        #             }
-        #         }
-        #     }
-        # }
-        # return @{}
     }
 }
 
@@ -624,7 +603,7 @@ function Get-JujuRelationParams {
 function Exit-FromJujuHook {
     <#
     .SYNOPSIS
-     Please do not use this function. It is only present for backwards compatibility. It should never be used
+     Please do not ever use this function. It is only present for backwards compatibility. It should never be used
      in any charm code. Please use Invoke-JujuReboot if you need to reboot the machine the charm is running on.
     .PARAMETER WithReboot
      When $true, it will run Invoke-JujuReboot -Now, instead of exit 0.
@@ -679,7 +658,7 @@ function Invoke-JujuReboot {
     if ($Now) {
         $cmd += "--now"
     }
-    Invoke-JujuCommand -Command $cmd
+    Invoke-JujuCommand -Command $cmd | Out-Null
 }
 
 # TODO(gabriel-samfira): Move this to separate module

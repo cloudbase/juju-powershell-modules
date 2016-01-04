@@ -11,18 +11,22 @@ $savedEnv = [System.Environment]::GetEnvironmentVariables()
 
 Import-Module JujuHooks
 
+function Clear-Environment {
+    $current = [System.Environment]::GetEnvironmentVariables()
+    foreach($i in $savedEnv.GetEnumerator()) {
+        [System.Environment]::SetEnvironmentVariable($i.Name, $i.Value, "Process")
+    }
+    $current = [System.Environment]::GetEnvironmentVariables()
+    foreach ($i in $current.GetEnumerator()){
+        if(!$savedEnv[$i.Name]){
+            [System.Environment]::SetEnvironmentVariable($i.Name, $null, "Process")
+        }
+    }
+}
+
 Describe "Test Confirm-ContextComplete" {
     AfterEach {
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach($i in $savedEnv.GetEnumerator()) {
-            [System.Environment]::SetEnvironmentVariable($i.Name, $i.Value, "Process")
-        }
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach ($i in $current.GetEnumerator()){
-            if(!$savedEnv[$i.Name]){
-                [System.Environment]::SetEnvironmentVariable($i.Name, $null, "Process")
-            }
-        }
+        Clear-Environment
     }
     It "Should return False" {
         $ctx = @{
@@ -56,16 +60,7 @@ Describe "Test Confirm-ContextComplete" {
 
 Describe "Test hook environment functions" {
     AfterEach {
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach($i in $savedEnv.GetEnumerator()) {
-            [System.Environment]::SetEnvironmentVariable($i.Name, $i.Value, "Process")
-        }
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach ($i in $current.GetEnumerator()){
-            if(!$savedEnv[$i.Name]){
-                [System.Environment]::SetEnvironmentVariable($i.Name, $null, "Process")
-            }
-        }
+        Clear-Environment
     }
     It "Should return charm_dir" {
         $env:CHARM_DIR = "bogus"
@@ -147,16 +142,7 @@ Describe "Test Get-JujuCharmConfig" {
 
 Describe "Test Get-JujuRelation" {
     AfterEach {
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach($i in $savedEnv.GetEnumerator()) {
-            [System.Environment]::SetEnvironmentVariable($i.Name, $i.Value, "Process")
-        }
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach ($i in $current.GetEnumerator()){
-            if(!$savedEnv[$i.Name]){
-                [System.Environment]::SetEnvironmentVariable($i.Name, $null, "Process")
-            }
-        }
+        Clear-Environment
     }
     Context "Invoke Get-JujuRelation without params" {
         Mock Invoke-JujuCommand -ModuleName JujuHooks {
@@ -240,16 +226,7 @@ Describe "Test Get-JujuRelation" {
 
 Describe "Test Set-JujuRelation"{
     AfterEach {
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach($i in $savedEnv.GetEnumerator()) {
-            [System.Environment]::SetEnvironmentVariable($i.Name, $i.Value, "Process")
-        }
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach ($i in $current.GetEnumerator()){
-            if(!$savedEnv[$i.Name]){
-                [System.Environment]::SetEnvironmentVariable($i.Name, $null, "Process")
-            }
-        }
+        Clear-Environment
     }
 
     Context "Call Set-JujuRelation without RelationID" {
@@ -330,16 +307,7 @@ Describe "Test Set-JujuRelation"{
 
 Describe "Test Get-JujuRelationIds" {
     AfterEach {
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach($i in $savedEnv.GetEnumerator()) {
-            [System.Environment]::SetEnvironmentVariable($i.Name, $i.Value, "Process")
-        }
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach ($i in $current.GetEnumerator()){
-            if(!$savedEnv[$i.Name]){
-                [System.Environment]::SetEnvironmentVariable($i.Name, $null, "Process")
-            }
-        }
+        Clear-Environment
     }
     Context "Call Get-JujuRelationIds without -Relation"{
         Mock Invoke-JujuCommand -ModuleName JujuHooks {
@@ -380,16 +348,7 @@ Describe "Test Get-JujuRelationIds" {
 
 Describe "Test Get-JujuRelatedUnits" {
     AfterEach {
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach($i in $savedEnv.GetEnumerator()) {
-            [System.Environment]::SetEnvironmentVariable($i.Name, $i.Value, "Process")
-        }
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach ($i in $current.GetEnumerator()){
-            if(!$savedEnv[$i.Name]){
-                [System.Environment]::SetEnvironmentVariable($i.Name, $null, "Process")
-            }
-        }
+        Clear-Environment
     }
     Context "Call Get-JujuRelatedUnits without -RelationID"{
         Mock Invoke-JujuCommand -ModuleName JujuHooks {
@@ -477,10 +436,8 @@ Describe "Test Get-JujuRelationForId" {
             $r.Count | Should Be 2
             $r[0]["rabbit-0-test"] | Should Be "test-0"
             $r[0]["rabbit-0-hello"] | Should Be "rabbit-0-world"
-            $r[0]["__unit__"] | Should Be "rabbitmq/0"
             $r[1]["rabbit-1-test"] | Should Be "test-1"
             $r[1]["rabbit-1-hello"] | Should Be "rabbit-1-world"
-            $r[1]["__unit__"] | Should Be "rabbitmq/1"
         }
 
         It "Should throw an exception (Missing relation ID)" {
@@ -508,8 +465,13 @@ Describe "Test Get-JujuRelationsOfType" {
         )
         $data = @{
             "amqp:1"= @{
-                'rabbitmq/0'= @{"rabbit-0-test"="test-0";};
-                'rabbitmq/1'= @{"rabbit-1-test"="test-1";};
+                'rabbitmq/0'= @{
+                    "rabbit-0-test"="test-0";
+                };
+                'rabbitmq/1'= @{
+                    "rabbit-1-test"="test-1";
+                    "rabbit-1-test2"="test-2";
+                };
             };
             "amqp:2" = @{
                 'keystone/0'=@{
@@ -621,16 +583,7 @@ Describe "Test Confirm-IP" {
 
 Describe "Test Get-JujuUnitPrivateIP" {
     AfterEach {
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach($i in $savedEnv.GetEnumerator()) {
-            [System.Environment]::SetEnvironmentVariable($i.Name, $i.Value, "Process")
-        }
-        $current = [System.Environment]::GetEnvironmentVariables()
-        foreach ($i in $current.GetEnumerator()){
-            if(!$savedEnv[$i.Name]){
-                [System.Environment]::SetEnvironmentVariable($i.Name, $null, "Process")
-            }
-        }
+        Clear-Environment
     }
     Mock Resolve-Address -ModuleName JujuHooks -Verifiable {
         Param(
@@ -681,5 +634,181 @@ Describe "Test Get-JujuUnitPrivateIP" {
         $env:privateIP = '"example-bogus.com"'
         { Get-JujuUnitPrivateIP } | Should Throw
         Assert-VerifiableMocks
+    }
+}
+
+Describe "Test Get-JujuRelationContext" {
+    Mock Get-JujuRelationIds -ModuleName JujuHooks {
+        Param(
+            [Alias("RelType")]
+            [string]$Relation=$null
+        )
+        $relations = @{
+            "amqp" = @("amqp:1", "amqp:2");
+            "identity" = @();
+        }
+        return $relations[$Relation]
+    }
+    Mock Get-JujuRelationsOfType -ModuleName JujuHooks {
+        Param(
+            [Alias("RelType")]
+            [string]$Relation=$null
+        )
+
+        $data = @{
+            "amqp"= @(
+                @{
+                    "username"="guest";
+                    "private-address"="192.168.1.1";
+                },
+                @{
+                    "username"="guest";
+                    "password"="secret";
+                    "private-address"="192.168.1.2";
+                }
+            );
+            "identity"=@(
+                @{
+                    "url"="example.com";
+                    "private-address"="192.168.1.3";
+                }
+            );
+        }
+        return $data[$Relation]
+    }
+    It "Should return an empty context" {
+        $ctx = @{
+            "username"=$null;
+            "password"=$null;
+            "url"=$null;
+        }
+        Get-JujuRelationContext -RequiredContext $ctx -Relation "identity" | Should BeNullOrEmpty
+    }
+    It "Should return populated context" {
+        $ctx = @{
+            "username"=$null;
+            "password"=$null;
+        }
+        $r = Get-JujuRelationContext -RequiredContext $ctx -Relation "amqp"
+        $r | Should Not BeNullOrEmpty
+        $r["username"] | Should Be "guest"
+        $r["password"] | Should Be "secret"
+        $r.Keys | Should Be @("username", "password")
+    }
+    It "Should also contain the private-address" {
+        $ctx = @{
+            "username"=$null;
+            "password"=$null;
+            "private-address"=$null;
+        }
+        $r = Get-JujuRelationContext -RequiredContext $ctx -Relation "amqp"
+        $r | Should Not BeNullOrEmpty
+        $r["username"] | Should Be "guest"
+        $r["password"] | Should Be "secret"
+        $r["private-address"] | Should Be "192.168.1.2"
+        $r.Keys | Should Be @("private-address", "username", "password")
+    }
+}
+
+Describe "Test Invoke-JujuReboot" {
+    Context "Reboot at end" {
+        Mock Invoke-JujuCommand -ModuleName JujuHooks {
+            Param (
+                [array]$Command
+            )
+            $expect = @("juju-reboot.exe")
+            if((Compare-Object $Command $expect)) {
+                Throw "Invalid command"
+            }
+        }
+        It "Should not send the --now flag" {
+            Invoke-JujuReboot | Should BeNullOrEmpty
+        }
+    }
+    Context "Reboot now" {
+        Mock Invoke-JujuCommand -ModuleName JujuHooks {
+            Param (
+                [array]$Command
+            )
+            $expect = @("juju-reboot.exe", "--now")
+            if((Compare-Object $Command $expect)) {
+                Throw "Invalid command"
+            }
+        }
+        It "Should not send the --now flag" {
+            Invoke-JujuReboot -Now | Should BeNullOrEmpty
+        }
+    }
+}
+
+Describe "Test Confirm-JujuPortRangeOpen" {
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $expect = @("opened-ports.exe", "--format=json")
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+        return '["111/tcp", "222/udp", "2000-3000/tcp"]'
+    }
+    It "Should Throw an exception on invalid ports" {
+        { Confirm-JujuPortRangeOpen -Port "dummy"} | Should Throw
+        { Confirm-JujuPortRangeOpen -Port 1111111} | Should Throw
+        { Confirm-JujuPortRangeOpen -Port "123/TTCP" } | Should Throw
+        { Confirm-JujuPortRangeOpen } | Should Throw
+    }
+    It "Should return True" {
+        Confirm-JujuPortRangeOpen -Port "111/tcp" | Should Be $true
+        Confirm-JujuPortRangeOpen -Port "222/udp" | Should Be $true
+        Confirm-JujuPortRangeOpen -Port "2000-3000/tcp" | Should Be $true
+    }
+    It "Should return False" {
+        Confirm-JujuPortRangeOpen -Port "111/udp" | Should Be $false
+        Confirm-JujuPortRangeOpen -Port "222/tcp" | Should Be $false
+        Confirm-JujuPortRangeOpen -Port "2000-3001/tcp" | Should Be $false
+    }
+}
+
+Describe "Test Open-JujuPort" {
+    AfterEach {
+        Clear-Environment
+    }
+    Mock Confirm-JujuPortRangeOpen -ModuleName JujuHooks {
+        Param(
+            [Parameter(Mandatory=$true)]
+            [ValidatePattern('^(\d{1,5}-)?\d{1,5}/(tcp|udp)$')]
+            [string]$Port
+
+        )
+        $p = $env:OpenedPortsTest.Split()
+        foreach ($i in $p){
+            if ($Port -eq $i){
+                return $true
+            }
+        }
+        return $false
+    }
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $expect = @("open-port.exe")
+        if((Compare-Object $Command ($expect += $Command[-1]))) {
+            Throw "Invalid command"
+        }
+        $p = $env:OpenedPortsTest.Split()
+        foreach($i in $p) {
+            if ($i -eq $Command[-1]){
+                Throw "Port already open"
+            }
+        }
+        $p += $Command[-1]
+        $env:OpenedPortsTest = $p
+    }
+    Mock Write-JujuErr -Verifiable {}
+    It "Should open port" {
+        $env:OpenedPortsTest = @("1024/tcp")
+        Open-JujuPort -Port "1024/tcp" | Should Be $true 
     }
 }
