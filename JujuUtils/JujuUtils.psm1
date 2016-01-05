@@ -265,6 +265,15 @@ function Start-ExternalCommand {
         [string]$ErrorMessage
     )
     PROCESS {
+        if($LASTEXITCODE){
+            # Leftover exit code. Some other process failed, and this
+            # function was called before it was resolved.
+            # There is no way to determine if the ScriptBlock contains
+            # a powershell commandlet or a native application. So we clear out
+            # the LASTEXITCODE variable before we execute. By this time, the value of
+            # the variable is not to be trusted for error detection anyway.
+            $LASTEXITCODE = ""
+        }
         $res = Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
         if ($LASTEXITCODE) {
             if(!$ErrorMessage){

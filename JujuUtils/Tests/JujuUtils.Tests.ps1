@@ -37,6 +37,7 @@ Describe "Test Convert-FileToBase64" {
         if((Test-Path $p)) {
             rm -Recurse -Force $p
         }
+        Clear-Environment
     }
     It "Should convert file contents to base64" {
         $p = Join-Path $env:TMP "PesterTesting"
@@ -77,6 +78,7 @@ Describe "Test Write-FileFromBase64" {
         if((Test-Path $p)) {
             rm -Recurse -Force $p
         }
+        Clear-Environment
     }
     It "Should write file from base64" {
         $c = "aGVsbG8gd29ybGQNCg=="
@@ -182,14 +184,20 @@ Describe "Test Compare-HashTables" {
 }
 
 Describe "Test Start-ExternalCommand" {
+    AfterEach {
+        Clear-Environment
+    }
     It "Should Write-Output 1" {
-        Start-ExternalCommand -ScriptBlock { Write-Output 1 } | Should Be 1
+        Start-ExternalCommand -ScriptBlock { Write-Output "test" } | Should Be "test"
     }
     It "Should throw an exception on non zero exit status" {
         { Start-ExternalCommand -ScriptBlock { nonexistingcommand } }| Should Throw
     }
     It "Should return 1 using cmd" {
         Start-ExternalCommand -ScriptBlock { cmd.exe /c echo 1 } | Should Be 1
+    }
+    It "Should throw on cmd non zero exit status" {
+        { Start-ExternalCommand -ScriptBlock { cmd.exe /c "nonexisting > NUL 2>&1" } } | Should Throw
     }
 }
 
