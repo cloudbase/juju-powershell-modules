@@ -1030,20 +1030,278 @@ Describe "Test Get-JujuVersion" {
     }
 }
 
-Describe "Test Set-JujuStatus" {}
+Describe "Test Get-JujuStatus" {
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $expect = @("status-get.exe", "--include-data","--format=json")
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+        return '{"message":"Unit is ready","status":"active","status-data":{"sample": 1}}'
+    }
+    It "Should return the status" {
+        Get-JujuStatus | Should Be "active"
+    }
+    It "Should full status info" {
+        $r = Get-JujuStatus -Full
+        $r.GetType() | Should Be "hashtable"
+        $r["message"] | Should Be "Unit is ready"
+        $r["status"] | Should Be "active"
+        $r["status-data"].GetType() | Should Be "System.Management.Automation.PSCustomObject"
+        $r["status-data"].sample | Should Be 1
+    }
+}
 
-Describe "Test Get-JujuStatus" {}
+Describe "Test Set-JujuStatus" {
+    AfterEach {
+        Clear-Environment
+    }
+    Mock Write-JujuWarning -Verifiable -ModuleName JujuHooks {
+        Param(
+            [Parameter(Mandatory=$true)]
+            [string]$Message
+        )
+    }
+    Mock Invoke-JujuCommand -ModuleName JujuHooks -Verifiable -ParameterFilter { $Command.Count -eq 2 } {
+        $statuses = @("maintenance", "blocked", "waiting", "active")
+        if(!($Command[1] -in $statuses)){
+            throw "invalid status"
+        }
+        $expect = @("status-set.exe", $Command[1])
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+        $tmpStatus = @{
+            "status"=$Command[1];
+            "message"="";
+            "status-data"=@{};
+        }
+        $env:PesterTestData = (ConvertTo-Json $tmpStatus)
+    }
+    Mock Invoke-JujuCommand -ModuleName JujuHooks -Verifiable -ParameterFilter { $Command.Count -eq 3 } {
+        $statuses = @("maintenance", "blocked", "waiting", "active")
+        if(!($Command[1] -in $statuses)){
+            throw "invalid status"
+        }
+        $expect = @("status-set.exe", $Command[1], $Command[2])
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+        $tmpStatus = @{
+            "status"=$Command[1];
+            "message"=$Command[2];
+            "status-data"=@{};
+        }
+        $env:PesterTestData = (ConvertTo-Json $tmpStatus)
+    }
+    Mock Get-JujuStatus -ModuleName JujuHooks {
+        Param(
+            [switch]$Full=$false
+        )
+        $js = $env:PesterTestData
+        $data = ConvertFrom-Json $js
+        if($Full) {
+            return $js
+        }
+        return (ConvertTo-Json $data.status)
+    }
+    It "Should only set status" {
+        $env:PesterTestData = '{"message":"","status":"unknown","status-data":{}}'
+        Set-JujuStatus -Status "active" | Should BeNullOrEmpty
+        $d = ConvertFrom-Json $env:PesterTestData
+        $d.status | Should Be "active"
+        $d.message | Should BeNullOrEmpty
+        $d."status-data".ToString() | Should BeNullOrEmpty 
+    }
 
-Describe "Test Get-JujuAction" {}
+    It "Should set status and message" {
+        $env:PesterTestData = '{"message":"","status":"unknown","status-data":{}}'
+        Set-JujuStatus -Status "active" -Message "Unit is ready" | Should BeNullOrEmpty
+        Assert-MockCalled Invoke-JujuCommand -Times 1 -ModuleName JujuHooks
+        $d = ConvertFrom-Json $env:PesterTestData
+        $d.status | Should Be "active"
+        $d.message | Should Be "Unit is ready"
+        $d."status-data".ToString() | Should BeNullOrEmpty 
+    }
+    It "Should not change message if status is unchanged" {
+        $env:PesterTestData = '{"message":"","status":"unknown","status-data":{}}'
+        Set-JujuStatus -Status "active" -Message "Unit is ready" | Should BeNullOrEmpty
+        $d = ConvertFrom-Json $env:PesterTestData
+        $d.status | Should Be "active"
+        $d.message | Should Be "Unit is ready"
+        $d."status-data".ToString() | Should BeNullOrEmpty
 
-Describe "Test Set-JujuAction" {}
+        Set-JujuStatus -Status "active" -Message "Unit is almost ready" | Should BeNullOrEmpty
+        Assert-MockCalled Invoke-JujuCommand -Times 1 -ModuleName JujuHooks
+        $d.status | Should Be "active"
+        $d.message | Should Be "Unit is ready"
+        $d."status-data".ToString() | Should BeNullOrEmpty
+    }
+    It "Should Throw an exception on invalid status" {
+        { Set-JujuStatus -Status "bogus" -Message "Unit is almost ready" } | Should Throw
+        { Set-JujuStatus -Status "bogus" } | Should Throw
+    }
+}
 
-Describe "Test Set-JujuActionFailed" {}
+Describe "Test Get-JujuAction" {
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $data = @{
+            "bla"="bla";
+        }
+        if ($Command.Count -gt 3 -or $Command.Count -lt 2){
+            Throw "invalid command"
+        }
+        $expect = @("action-get.exe", "--format=json")
+        if ($Command.Count -eq 3){
+            $expect += $Command[-1]
+        }
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+        if($Command.Count -eq 3){
+            return (ConvertTo-Json $data[$Command[2]])
+        }
+        return (ConvertTo-Json $data)
+    }
+    It "Should send proper command" {
+        (Get-JujuAction).GetType() | Should Be "hashtable"
+    }
+    It "Should return value" {
+        Get-JujuAction -Parameter "bla" | Should be "bla"
+    }
+    It "Should return empty" {
+        Get-JujuAction -Parameter "NotThere" | Should BeNullOrEmpty
+    }
+}
 
-Describe "Test Convert-JujuUnitNameToNetbios" {}
+Describe "Test Set-JujuAction" {
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        $expect = @("action-set.exe", "hello=world", "password=secret")
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+    }
+    It "Should send proper parameters to leader-set" {
+        $data = @{
+            "hello"="world";
+            "password"="secret";
+        }
+        Set-JujuAction -Settings $data | Should BeNullOrEmpty
+    }
+    It "Should throw an exception on invalid data" {
+        { Set-LeaderData -Settings "bogus" } | Should Throw
+        { Set-LeaderData -Settings @(1,2,3) } | Should Throw
+    }
+}
 
-Describe "Test Set-CharmState" {}
+Describe "Test Set-JujuActionFailed" {
+    Mock Invoke-JujuCommand -ModuleName JujuHooks {
+        Param (
+            [array]$Command
+        )
+        if ($Command.Count -lt 1 -or $Command.Count -gt 2) {
+            Throw "Invalid parameters"
+        }
+        $expect = @("action-fail.exe")
+        if($Command.Count -eq 2) {
+            $expect += $Command[-1]
+        }
+        if((Compare-Object $Command $expect)) {
+            Throw "Invalid command"
+        }
+    }
+    It "Should send action fail" {
+        Set-JujuActionFailed | Should BeNullOrEmpty
+    }
+}
 
-Describe "Test Get-CharmState" {}
+Describe "Test Convert-JujuUnitNameToNetbios" {
+    AfterEach {
+        Clear-Environment
+    }
+    Mock Get-JujuLocalUnit -ModuleName JujuHooks {
+        return $env:PesterTestData
+    }
+    It "Should return a valid netbios name" {
+        $env:PesterTestData = "active-directory/12"
+        Convert-JujuUnitNameToNetbios | Should Be "active-direct12"
+        $env:PesterTestData = "test/11"
+        Convert-JujuUnitNameToNetbios | Should Be "test11"
+        $env:PesterTestData = "thisisareallylonghostnamethatwillprobablybreakstuff/1"
+        Convert-JujuUnitNameToNetbios | Should Be "thisisareallyl1"
+    }
+}
 
-Describe "Test Remove-CharmState" {}
+Describe "Test Set-CharmState" {
+    AfterEach {
+        $CharmStateKey = "HKCU:\Software\Juju-Charms"
+        if($CharmStateKey -and (Test-Path $CharmStateKey)) {
+            Remove-Item $CharmStateKey -Recurse -Force
+        }
+    }
+    BeforeEach {
+        $CharmStateKey = "HKCU:\Software\Juju-Charms"
+        if($CharmStateKey -and (Test-Path $CharmStateKey)) {
+            Remove-Item $CharmStateKey -Recurse -Force
+        }
+    }
+    Mock Get-StateInformationRepository -ModuleName JujuHooks { return "HKCU:\Software\Juju-Charms"}
+    It "Should set a registry key" {
+        $p = "HKCU:\Software\Juju-Charms"
+        (Test-Path -Path $p) | Should Be $false
+        Set-CharmState -Namespace "active-directory" -Key "username" -Value "guest" | Should BeNullOrEmpty
+        $fullKey = "active-directoryusername"
+        (Test-Path -Path $p) | Should Be $true
+        $k = (Get-ItemProperty -Path $p -Name $fullKey)
+        (Select-Object -InputObject $k -ExpandProperty $fullKey) | Should Be "guest"
+    }
+}
+
+Describe "Test Get-CharmState" {
+    AfterEach {
+        $CharmStateKey = "HKCU:\Software\Juju-Charms"
+        if($CharmStateKey -and (Test-Path $CharmStateKey)) {
+            Remove-Item $CharmStateKey -Recurse -Force
+        }
+    }
+    BeforeEach {
+        $CharmStateKey = "HKCU:\Software\Juju-Charms"
+        if($CharmStateKey -and (Test-Path $CharmStateKey)) {
+            Remove-Item $CharmStateKey -Recurse -Force
+        }
+    }
+    Mock Get-StateInformationRepository -ModuleName JujuHooks { return "HKCU:\Software\Juju-Charms"}
+    It "Should return charm state" {
+        Set-CharmState -Namespace "active-directory" -Key "username" -Value "guest" | Should BeNullOrEmpty
+        Get-CharmState -Namespace "active-directory" -Key "username" | Should be "guest"
+    }
+}
+
+Describe "Test Remove-CharmState" {
+    AfterEach {
+        $CharmStateKey = "HKCU:\Software\Juju-Charms"
+        if($CharmStateKey -and (Test-Path $CharmStateKey)) {
+            Remove-Item $CharmStateKey -Recurse -Force
+        }
+    }
+    BeforeEach {
+        $CharmStateKey = "HKCU:\Software\Juju-Charms"
+        if($CharmStateKey -and (Test-Path $CharmStateKey)) {
+            Remove-Item $CharmStateKey -Recurse -Force
+        }
+    }
+    Mock Get-StateInformationRepository -ModuleName JujuHooks { return "HKCU:\Software\Juju-Charms"}
+    It "Should remove charm state" {
+        Set-CharmState -Namespace "active-directory" -Key "username" -Value "guest" | Should BeNullOrEmpty
+        Get-CharmState -Namespace "active-directory" -Key "username" | Should be "guest"
+        Remove-CharmState -Namespace "active-directory" -Key "username" | Should BeNullOrEmpty
+    }
+}

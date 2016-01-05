@@ -12,6 +12,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
+function Get-StateInformationRepository {
+    <#
+    .SYNOPSIS
+    Returns the path to the registry location where local charm information is stored
+    #>
+    PROCESS {
+        return "HKLM:\SOFTWARE\Juju-Charms"
+    }
+}
+
 function Confirm-ContextComplete {
     <#
     .SYNOPSIS
@@ -900,6 +911,33 @@ function Get-JujuVersion {
     }
 }
 
+function Get-JujuStatus {
+    <#
+    .SYNOPSIS
+    Get unit status
+    .PARAMETER Full
+    return all data set in the status of a unit. Includes status, message, status-data
+    #>
+    [CmdletBinding()]
+    Param(
+        [switch]$Full=$false
+    )
+    PROCESS {
+        $cmd = @("status-get.exe", "--include-data","--format=json")
+        $result = Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json
+
+        if($Full){
+            $ret = @{}
+            foreach ($i in $result.psobject.properties) {
+                # if($i.Value.GetType())
+                $ret[$i.Name] = $i.Value
+            }
+            return $ret
+        }
+        return $result.status
+    }
+}
+
 function Set-JujuStatus {
     <#
     .SYNOPSIS
@@ -942,30 +980,8 @@ function Set-JujuStatus {
             $cmd += $js
         }
         if ((Get-JujuStatus) -ne $Status) {
-            return Invoke-JujuCommand -Cmd $cmd
+            Invoke-JujuCommand -Command $cmd | Out-Null
         }
-    }
-}
-
-function Get-JujuStatus {
-    <#
-    .SYNOPSIS
-    Get unit status
-    .PARAMETER Full
-    return all data set in the status of a unit. Includes status, message, status-data
-    #>
-    [CmdletBinding()]
-    Param(
-        [switch]$Full=$false
-    )
-    PROCESS {
-        $cmd = @("status-get.exe", "--include-data","--format=json")
-        $result = Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json
-
-        if($Full){
-            return $result
-        }
-        return $result["status"]
     }
 }
 
@@ -985,10 +1001,18 @@ function Get-JujuAction {
     )
     PROCESS {
         $cmd = @("action-get.exe", "--format=json")
-        if($ActionParam){
-            $cmd += $ActionParam
+        if($Parameter){
+            $cmd += $Parameter
         }
-        return (Invoke-JujuCommand $cmd | ConvertFrom-Json)
+        $result = (Invoke-JujuCommand $cmd | ConvertFrom-Json)
+        if($Parameter){
+            return $result
+        }
+        $ret = @{}
+        foreach ($i in $result.psobject.properties) {
+            $ret[$i.Name] = $i.Value
+        }
+        return $ret
     }
 }
 
@@ -1011,7 +1035,6 @@ function Set-JujuAction {
             $cmd += ($i.key + "=" + $i.Value)
         }
         Invoke-JujuCommand -Command $cmd | Out-Null
-        return $true
     }
 }
 
@@ -1033,7 +1056,6 @@ function Set-JujuActionFailed {
             $cmd += $Message
         }
         Invoke-JujuCommand $cmd | Out-Null
-        return $true
     }
 }
 
@@ -1089,22 +1111,22 @@ function Set-CharmState {
         [string]$Value
     )
     PROCESS {
+        $CharmStateKey = Get-StateInformationRepository
         $keyDirExists = Test-Path -Path $CharmStateKey
         if ($keyDirExists -eq $false) {
             $keyDir = Split-Path -Parent $CharmStateKey
             $keyName = Split-Path -Leaf $CharmStateKey
-            New-Item -Path $keyDir -Name $keyName
+            New-Item -Path $keyDir -Name $keyName | Out-Null
         }
 
-        $fullKey = ($CharmName + $Key)
+        $fullKey = ($Namespace + $Key)
         $property = New-ItemProperty -Path $CharmStateKey `
                                      -Name $fullKey `
-                                     -Value $Val `
+                                     -Value $Value `
                                      -PropertyType String `
                                      -ErrorAction SilentlyContinue
-
         if ($property -eq $null) {
-            Set-ItemProperty -Path $CharmStateKey -Name $fullKey -Value $Val
+            Set-ItemProperty -Path $CharmStateKey -Name $fullKey -Value $Value
         }
     }
 }
@@ -1127,7 +1149,8 @@ function Get-CharmState {
         [string]$Key
     )
     PROCESS {
-        $fullKey = ($CharmName + $Key)
+        $CharmStateKey = Get-StateInformationRepository
+        $fullKey = ($Namespace + $Key)
         $property = Get-ItemProperty -Path $CharmStateKey `
                                      -Name $fullKey `
                                      -ErrorAction SilentlyContinue
@@ -1158,10 +1181,10 @@ function Remove-CharmState {
         [string]$Key
     )
     PROCESS {
-        $keyPath = Get-CharmStateFullKeyPath
-        $fullKey = ($CharmName + $Key)
-        if (Get-CharmState $CharmName $Key) {
-            Remove-ItemProperty -Path $keyPath -Name $fullKey
+        $CharmStateKey = Get-StateInformationRepository
+        $fullKey = ($Namespace + $Key)
+        if (Get-CharmState $Namespace $Key) {
+            Remove-ItemProperty -Path $CharmStateKey -Name $fullKey
         }
     }
 }
