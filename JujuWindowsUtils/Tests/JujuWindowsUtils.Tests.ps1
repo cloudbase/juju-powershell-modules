@@ -97,5 +97,3 @@ Describe "Test Add-WindowsUser" {}
 Describe "Test Remove-WindowsUser" {}
 
 Describe "Test Open-Ports" {}
-
-Describe "Test Clear-Environment" {}
