@@ -29,11 +29,16 @@ function Convert-FileToBase64{
     [CmdletBinding()]
     Param (
         [parameter(Mandatory=$true)]
-        [string]$File
+        [string]$File,
+        [switch]$Force
     )
     PROCESS {
         if(!(Test-Path $File)) {
             Throw "No such file: $File"
+        }
+        $f = (Get-Item $File)
+        if($f.Length -gt 1MB -and !$Force) {
+            Throw "File is too big to convert (> 1MB). Use -Force to do it anyway..."
         }
         $ct = [System.IO.File]::ReadAllBytes($File)
         $b64 = [Convert]::ToBase64String($ct)
@@ -199,10 +204,10 @@ function Compare-Arrays {
     Param(
         [Parameter(Mandatory=$true)]
         [Alias("arr1")]
-        [array]$Array1,
+        [System.Object[]]$Array1,
         [Parameter(Mandatory=$true)]
         [Alias("arr2")]
-        [array]$Array2
+        [System.Object[]]$Array2
     )
     PROCESS {
         return (((Compare-Object $Array1 $Array2).InputObject).Length -eq 0)
@@ -212,7 +217,7 @@ function Compare-Arrays {
 function Compare-HashTables {
     <#
     .SYNOPSIS
-    Compare two arrays. Returns a boolean value that determines whether or not the arrays are equal.
+    Compare two arrays. Returns a boolean value that determines whether or not the arrays are equal. This function only works for flat hashtables.
     .PARAMETER Array1
     First array to compare
     .PARAMETER Array2
@@ -261,13 +266,34 @@ function Start-ExternalCommand {
     )
     PROCESS {
         $res = Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
-        if ($LASTEXITCODE -ne 0) {
+        if ($LASTEXITCODE) {
             if(!$ErrorMessage){
                 Throw ("Command exited with status: {0}" -f $LASTEXITCODE)
             }
             throw ("{0} (Exit code: $LASTEXITCODE)" -f $ErrorMessage)
         }
         return $res
+    }
+}
+
+function Get-CallStack {
+    <#
+    .SYNOPSIS
+    Returns an array of three elements, containing: Error message, error position, and stack trace.
+    .PARAMETER ErrorRecord
+    The error record to extract details from.
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+    PROCESS {
+        $message = $ErrorRecord.Exception.Message
+        $position = $ErrorRecord.InvocationInfo.PositionMessage
+        $trace = $ErrorRecord.ScriptStackTrace
+        $info = @($message, $position, $trace)
+        return $info
     }
 }
 
@@ -295,27 +321,6 @@ function Write-HookTracebackToLog {
         foreach ($i in $info){
             Write-JujuLog $i -LogLevel $LogLevel
         }
-    }
-}
-
-function Get-CallStack {
-    <#
-    .SYNOPSIS
-    Returns an array of three elements, containing: Error message, error position, and stack trace.
-    .PARAMETER ErrorRecord
-    The error record to extract details from.
-    #>
-    [CmdletBinding()]
-    Param (
-        [Parameter(Mandatory=$true)]
-        [System.Management.Automation.ErrorRecord]$ErrorRecord
-    )
-    PROCESS {
-        $message = $ErrorRecord.Exception.Message
-        $position = $ErrorRecord.InvocationInfo.PositionMessage
-        $trace = $ErrorRecord.ScriptStackTrace
-        $info = @($message, $position, $trace)
-        return $info
     }
 }
 
@@ -398,6 +403,7 @@ function Test-FileIntegrity {
         if ($hash -ne $ExpectedHash) {
             throw ("File integrity check failed for {0}. Expected {1}, got {2}" -f @($File, $ExpectedHash, $hash))
         }
+        return $true
     }
 }
 
@@ -433,7 +439,7 @@ function Add-ToUserPath {
         if ($Path -in $env:Path.Split(';')){
             return
         }
-        $newPath = "$currentPath;$Path"
+        $newPath = $currentPath + ";" + $Path
         Start-ExternalCommand -Command {
             setx PATH $newPath
         } -ErrorMessage "Failed to set user path"
@@ -518,10 +524,10 @@ function Get-CmdStringFromHashtable {
     )
     PROCESS {
         $args = ""
-        foreach($i in $params.GetEnumerator()) {
+        foreach($i in $Parameters.GetEnumerator()) {
             $args += $i.key + "=" + $i.value + " "
         }
-        return $args
+        return $args.Trim()
     }
 }
 
@@ -538,7 +544,7 @@ function Get-EscapedQuotedString {
 function Get-PSStringParamsFromHashtable {
     <#
     .SYNOPSIS
-    Convert a hashtable to a powershell command line options. Values can be any powershell object.
+    Convert a hashtable to a powershell command line options. Values can be any powershell objects.
     .PARAMETER Parameters
     hashtable containing command line parameters.
 
@@ -548,7 +554,7 @@ function Get-PSStringParamsFromHashtable {
         "lastname"="Doe";
         "age"="20";
     }
-    Get-CmdStringFromHashtable $params
+    Get-PSStringParamsFromHashtable $params
     -age 20 -firstname John -lastname Doe
     #>
     [CmdletBinding()]
@@ -557,9 +563,9 @@ function Get-PSStringParamsFromHashtable {
         [Hashtable]$params
     )
     PROCESS {
-        $args = ""
+        $args = @()
         foreach($i in $params.GetEnumerator()) {
-            $args += ("-" + $i.key + " " + $i.value + " ")
+            $args += @(("-" + $i.key), $i.value)
         }
 
         return $args -join " "

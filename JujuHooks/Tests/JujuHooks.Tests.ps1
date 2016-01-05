@@ -1,7 +1,6 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $moduleHome = Split-Path -Parent $here
 $moduleRoot = Split-Path -Parent $moduleHome
-$bin = Join-Path $here "Bin"
 
 $modulePath = ${env:PSModulePath}.Split(";")
 if(!($moduleRoot -in $modulePath)){
