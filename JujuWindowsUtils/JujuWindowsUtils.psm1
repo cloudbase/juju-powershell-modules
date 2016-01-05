@@ -20,9 +20,17 @@ if ($version -lt 4){
     New-Alias -Name Get-ManagementObject -Value Get-CimInstance
 }
 
-$serverLevelKey = "HKLM:Software\Microsoft\Windows NT\CurrentVersion\Server\ServerLevels"
 $administratorsGroupSID = "S-1-5-32-544"
-$CharmStateKey = "HKLM:\SOFTWARE\Juju-Charms"
+
+function Get-ServerLevelKey {
+    <#
+    .SYNOPSIS
+    Returns the path to the registry location where information about the server levels is stored
+    #>
+    PROCESS {
+        return "HKLM:Software\Microsoft\Windows NT\CurrentVersion\Server\ServerLevels"
+    }
+}
 
 function Get-IsNanoServer {
     <#
@@ -30,6 +38,7 @@ function Get-IsNanoServer {
     Return a boolean value of $true if we are running on a Nano server version.
     #>
     PROCESS {
+        $serverLevelKey = Get-ServerLevelKey
         if (!(Test-Path $serverLevelKey)){
             # We are most likely running on a workstation version
             return $false

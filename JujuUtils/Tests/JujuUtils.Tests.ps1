@@ -93,6 +93,7 @@ Describe "Test Write-FileFromBase64" {
         { Write-FileFromBase64 -File $file -Content "bogus" } | Should Throw
     }
 }
+
 Describe "Test ConvertTo-Base64" {
     It "Should convert string to base64" {
         $sample = "hello world"
@@ -104,7 +105,6 @@ Describe "Test ConvertTo-Base64" {
     }
 }
 
-
 Describe "Test ConvertFrom-Base64" {
     It "Should convert base64 to string" {
         $sample = "aABlAGwAbABvACAAdwBvAHIAbABkAA=="
@@ -115,6 +115,7 @@ Describe "Test ConvertFrom-Base64" {
         ConvertFrom-Base64 -Content $sample | Should Be "ățș"
     }
 }
+
 Describe "Test Get-EncryptedString" {
     It "Should return an encrypted string" {
         $txt = "hello world"
