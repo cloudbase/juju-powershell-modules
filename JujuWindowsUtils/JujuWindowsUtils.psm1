@@ -664,6 +664,45 @@ function Open-Ports {
     }
 }
 
+function Import-Certificate() {
+    <#
+    .SYNOPSIS
+    Imports a x509 certificate in the chosen certificate store.
+    .PARAMETER CertificatePath
+    Path to x509 certificate
+    .PARAMETER StoreLocation
+    x509 store location
+    .PARAMETER StoreName
+    The name of the store to import into
+    .EXAMPLE
+    # Path to certificate folder
+    $filesDir = Join-Path (Get-JujuCharmDir) "files"
+    $crt = Join-Path $filesDir "Cloudbase_signing.cer"
+    Import-Certificate $crt -StoreLocation LocalMachine -StoreName TrustedPublisher
+    #>
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [string]$CertificatePath,
+
+        [parameter(Mandatory=$true)]
+        [System.Security.Cryptography.X509Certificates.StoreLocation]$StoreLocation,
+
+        [parameter(Mandatory=$true)]
+        [System.Security.Cryptography.X509Certificates.StoreName]$StoreName
+    )
+    PROCESS
+    {
+        $store = New-Object System.Security.Cryptography.X509Certificates.X509Store(
+            $StoreName, $StoreLocation)
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+
+        $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
+            $CertificatePath)
+        $store.Add($cert)
+    }
+}
+
 # Backwards compatible aliases
 New-Alias -Name Is-ComponentInstalled -Value Get-ComponentIsInstalled
 New-Alias -Name Change-ServiceLogon -Value Set-ServiceLogon

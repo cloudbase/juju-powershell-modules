@@ -80,7 +80,7 @@ RequiredModules = @("JujuUtils","JujuHooks","JujuHelper")
 # NestedModules = @("JujuWindowsUtils.psm1")
 
 # Functions to export from this module
-FunctionsToExport = "Get-IsNanoServer","Start-ProcessRedirect","Get-ComponentIsInstalled","Set-ServiceLogon","Get-ServiceIsRunning","Install-Msi","Expand-ZipArchive","Install-WindowsFeatures","Get-AccountObjectByName","Get-GroupObjectByName","Get-AccountObjectBySID","Get-GroupObjectBySID","Get-AccountNameFromSID","Get-GroupNameFromSID","Get-AdministratorAccount","Get-AdministratorsGroup","Get-UserGroupMembership","New-LocalAdmin","Add-WindowsUser","Remove-WindowsUser","Open-Ports"
+FunctionsToExport = "Get-IsNanoServer","Start-ProcessRedirect","Get-ComponentIsInstalled","Set-ServiceLogon","Get-ServiceIsRunning","Install-Msi","Expand-ZipArchive","Install-WindowsFeatures","Get-AccountObjectByName","Get-GroupObjectByName","Get-AccountObjectBySID","Get-GroupObjectBySID","Get-AccountNameFromSID","Get-GroupNameFromSID","Get-AdministratorAccount","Get-AdministratorsGroup","Get-UserGroupMembership","New-LocalAdmin","Add-WindowsUser","Remove-WindowsUser","Open-Ports","Import-Certificate"
 
 # Cmdlets to export from this module
 CmdletsToExport = '*'
