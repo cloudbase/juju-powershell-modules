@@ -99,3 +99,5 @@ Describe "Test Remove-WindowsUser" {}
 Describe "Test Open-Ports" {}
 
 Describe "Test Import-Certificate" {}
+
+Describe "Test Grant-Privilege" {}

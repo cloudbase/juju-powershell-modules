@@ -20,6 +20,8 @@ if ($version -lt 4){
     New-Alias -Name Get-ManagementObject -Value Get-CimInstance
 }
 
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$moduleHome = Split-Path -Parent $here
 $administratorsGroupSID = "S-1-5-32-544"
 
 function Get-ServerLevelKey {
@@ -45,6 +47,32 @@ function Get-IsNanoServer {
         }
         $serverLevels = Get-ItemProperty $serverLevelKey
         return ($serverLevels.NanoServer -eq 1)
+    }
+}
+
+function Grant-Privilege {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$User,
+        [Parameter(Mandatory=$true)]
+        [string]$Grant
+    )
+    BEGIN {
+        $privBin = (get-command cmd2.exe -ErrorAction SilentlyContinue).source
+        if(!$privBin) {
+            $privBin = Join-Path (Join-Path $moduleHome "Bin") "SetUserAccountRights.exe"
+        }
+        if(!(Test-Path $privBin)) {
+            Throw "Cound not find SetUserAccountRights.exe on the system."
+        }
+    }
+    PROCESS {
+        Write-JujuInfo "Running: $privBin -g $User -v $Grant"
+        & $privBin -g $User -v $Grant
+        if ($LASTEXITCODE){
+            Throw "SetUserAccountRights.exe: exited with status $LASTEXITCODE"
+        }
     }
 }
 
@@ -274,21 +302,25 @@ function Expand-ZipArchive {
     Param(
         [Parameter(Mandatory=$true)]
         [string]$ZipFile,
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [string]$Destination
     )
     PROCESS {
+        $normZipPath = (Resolve-Path $ZipFile).Path
+        if(!$Destination){
+            $Destination = $PWD.Path
+        }
         try {
             # This will work on PowerShell >= 5.0 (default on Windows 10/Windows Server 2016).
-            Expand-Archive -Path $ZipFile -DestinationPath $Destination
+            Expand-Archive -Path $normZipPath -DestinationPath $Destination
         } catch [System.Management.Automation.CommandNotFoundException] {
             try {
                 # Try without loading system.io.compression.filesystem. This will work by default on Nano
-                [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipFile, $Destination)
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($normZipPath, $Destination)
             }catch [System.Management.Automation.RuntimeException] {
                 # Load system.io.compression.filesystem. This will work on the full version of Windows Server
                 Add-Type -assembly "system.io.compression.filesystem"
-                [System.IO.Compression.ZipFile]::ExtractToDirectory($ZipFile, $Destination)
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($normZipPath, $Destination)
             }
         }
     }

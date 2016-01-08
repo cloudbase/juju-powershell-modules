@@ -61,7 +61,7 @@ PowerShellVersion = '3.0'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @("JujuUtils","JujuHooks","JujuHelper")
+RequiredModules = @("JujuUtils","JujuHooks","JujuHelper", "JujuLoger")
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
@@ -80,7 +80,7 @@ RequiredModules = @("JujuUtils","JujuHooks","JujuHelper")
 # NestedModules = @("JujuWindowsUtils.psm1")
 
 # Functions to export from this module
-FunctionsToExport = "Get-IsNanoServer","Start-ProcessRedirect","Get-ComponentIsInstalled","Set-ServiceLogon","Get-ServiceIsRunning","Install-Msi","Expand-ZipArchive","Install-WindowsFeatures","Get-AccountObjectByName","Get-GroupObjectByName","Get-AccountObjectBySID","Get-GroupObjectBySID","Get-AccountNameFromSID","Get-GroupNameFromSID","Get-AdministratorAccount","Get-AdministratorsGroup","Get-UserGroupMembership","New-LocalAdmin","Add-WindowsUser","Remove-WindowsUser","Open-Ports","Import-Certificate"
+FunctionsToExport = "Grant-Privilege","Get-IsNanoServer","Start-ProcessRedirect","Get-ComponentIsInstalled","Set-ServiceLogon","Get-ServiceIsRunning","Install-Msi","Expand-ZipArchive","Install-WindowsFeatures","Get-AccountObjectByName","Get-GroupObjectByName","Get-AccountObjectBySID","Get-GroupObjectBySID","Get-AccountNameFromSID","Get-GroupNameFromSID","Get-AdministratorAccount","Get-AdministratorsGroup","Get-UserGroupMembership","New-LocalAdmin","Add-WindowsUser","Remove-WindowsUser","Open-Ports","Import-Certificate"
 
 # Cmdlets to export from this module
 CmdletsToExport = '*'
