@@ -155,3 +155,51 @@ function Write-JujuError {
         }
     }
 }
+
+function Get-CallStack {
+    <#
+    .SYNOPSIS
+    Returns an array of three elements, containing: Error message, error position, and stack trace.
+    .PARAMETER ErrorRecord
+    The error record to extract details from.
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+    PROCESS {
+        $message = $ErrorRecord.Exception.Message
+        $position = $ErrorRecord.InvocationInfo.PositionMessage
+        $trace = $ErrorRecord.ScriptStackTrace
+        $info = @($message, $position, $trace)
+        return $info
+    }
+}
+
+function Write-HookTracebackToLog {
+    <#
+    .SYNOPSIS
+    A helper function that accepts an ErrorRecord and writes a full call stack trace of that error to the juju log. This function
+    works best when used in a try/catch block. You get a chance to log the error with proper log level before you re-throw it, or
+    exit the hook. 
+    .PARAMETER ErrorRecord
+    The error record to log.
+    .PARAMETER LogLevel
+    Optional log level to use. Defaults to ERROR.
+    #>
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord,
+        [string]$LogLevel="ERROR"
+    )
+    PROCESS {
+        $name = $MyInvocation.PSCommandPath
+        Write-JujuLog "Error while running $name" -LogLevel $LogLevel
+        $info = Get-CallStack $ErrorRecord
+        foreach ($i in $info){
+            Write-JujuLog $i -LogLevel $LogLevel
+        }
+    }
+}

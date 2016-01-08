@@ -202,46 +202,6 @@ Describe "Test Start-ExternalCommand" {
     }
 }
 
-Describe "Test Get-CallStack" {
-    It "Should parse ErrorRecord" {
-        $err = $null
-        try { nonexistingcommand } catch { $err = $_ }
-        $r = Get-CallStack $err
-        $r | Should Not BeNullOrEmpty
-        $r.Count | Should Be 3
-        $r[0] | Should Not BeNullOrEmpty
-        $r[1] | Should Not BeNullOrEmpty
-        $r[2] | Should Not BeNullOrEmpty
-    }
-    It "Should throw an exception" {
-        { Get-CallStack "bogus" } | Should Throw
-    }
-}
-
-Describe "Test Write-HookTracebackToLog" {
-    Mock Get-CallStack -Verifiable -ModuleName JujuUtils {
-        return @("first", "second", "third")
-    }
-    Mock Write-JujuLog -Verifiable -ModuleName JujuUtils {
-        Param(
-            [Parameter(Mandatory=$true)]
-            [string]$Message,
-            [ValidateSet("TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")]
-            [string]$LogLevel="INFO"
-        )
-        if($LogLevel -ne "ERROR"){
-            Throw "wrong log level"
-        }
-    }
-    It "Should write traceback to log" {
-        $err = $null
-        try { nonexistingcommand } catch { $err = $_ }
-        Write-HookTracebackToLog  -ErrorRecord $err -LogLevel "ERROR"
-        Assert-MockCalled Write-JujuLog -Times 4 -ModuleName JujuUtils
-        Assert-MockCalled Get-CallStack -Times 1 -ModuleName JujuUtils
-    }
-}
-
 Describe "Test Start-ExecuteWithRetry" {
     AfterEach {
         Clear-Environment
