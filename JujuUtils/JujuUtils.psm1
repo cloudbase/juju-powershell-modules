@@ -420,7 +420,7 @@ function Get-MarshaledObject {
     .PARAMETER Object
 
     .NOTES
-    Powershell uses utf-16-le encoding for objects
+    ConvertTo-Base64 uses utf-16-le encoding for objects
 
     .EXAMPLE
 
