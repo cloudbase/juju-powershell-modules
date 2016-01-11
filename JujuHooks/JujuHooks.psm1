@@ -947,7 +947,7 @@ function Set-JujuStatus {
             $cmd += $Message
         }
         if($StatusData -and $Supported){
-            $js = ConvertTo-Json $StatusData
+            $js = ConvertTo-Yaml $StatusData
             $cmd += $js
         }
         if ((Get-JujuStatus) -ne $Status) {

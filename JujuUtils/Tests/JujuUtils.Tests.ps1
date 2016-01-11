@@ -328,17 +328,17 @@ Describe "Test Get-MarshaledObject" {
     It "Should return a base64 encoded string" {
         $obj = @{"Hello"="world";}
         $r = Get-MarshaledObject -Object $obj
-        $r | Should Be "ewANAAoAIAAgACAAIAAiAEgAZQBsAGwAbwAiADoAIAAgACIAdwBvAHIAbABkACIADQAKAH0A"
-        (ConvertFrom-Base64 $r) -Replace "`r`n",'' -Replace " ",'' | Should Be '{"Hello":"world"}'
+        $r | Should Be "SABlAGwAbABvADoAIAB3AG8AcgBsAGQADQAKAA=="
+        (ConvertFrom-Base64 $r) | Should Be "Hello: world`r`n"
     }
 }
 
 Describe "Test Get-UnmarshaledObject" {
     It "Should return a PSCustomObject" {
-        $sample = "ewANAAoAIAAgACAAIAAiAEgAZQBsAGwAbwAiADoAIAAgACIAdwBvAHIAbABkACIADQAKAH0A"
+        $sample = "SABlAGwAbABvADoAIAB3AG8AcgBsAGQADQAKAA=="
         $r = Get-UnmarshaledObject $sample
-        $r.GetType() | Should Be "System.Management.Automation.PSCustomObject"
-        $r.Hello | Should Be "world"
+        $r.GetType() | Should Be "hashtable"
+        $r["Hello"] | Should Be "world"
     }
     It "Should throw an exception on bogus data" {
         { Get-UnmarshaledObject "bogus" } | Should Throw

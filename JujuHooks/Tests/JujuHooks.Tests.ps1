@@ -114,11 +114,11 @@ Describe "Test Get-JujuCharmConfig" {
         if($Command.Length -gt 2) {
             $x = $Command[2]
             if($ret[$x]){
-                return (ConvertTo-Json $ret[$x])
+                return (ConvertTo-Yaml $ret[$x])
             }
             return ""
         }
-        return (ConvertTo-Json $ret)
+        return (ConvertTo-Yaml $ret)
     }
     It "Should return a Hashtable" {
         (Get-JujuCharmConfig).GetType() | Should Be "Hashtable"
@@ -1077,7 +1077,7 @@ Describe "Test Set-JujuStatus" {
             "message"="";
             "status-data"=@{};
         }
-        $env:PesterTestData = (ConvertTo-Json $tmpStatus)
+        $env:PesterTestData = (ConvertTo-Yaml $tmpStatus)
     }
     Mock Invoke-JujuCommand -ModuleName JujuHooks -Verifiable -ParameterFilter { $Command.Count -eq 3 } {
         $statuses = @("maintenance", "blocked", "waiting", "active")
@@ -1093,50 +1093,50 @@ Describe "Test Set-JujuStatus" {
             "message"=$Command[2];
             "status-data"=@{};
         }
-        $env:PesterTestData = (ConvertTo-Json $tmpStatus)
+        $env:PesterTestData = (ConvertTo-Yaml $tmpStatus)
     }
     Mock Get-JujuStatus -ModuleName JujuHooks {
         Param(
             [switch]$Full=$false
         )
         $js = $env:PesterTestData
-        $data = ConvertFrom-Json $js
+        $data = ConvertFrom-Yaml $js
         if($Full) {
             return $js
         }
-        return (ConvertTo-Json $data.status)
+        return (ConvertTo-Yaml $data.status)
     }
     It "Should only set status" {
         $env:PesterTestData = '{"message":"","status":"unknown","status-data":{}}'
         Set-JujuStatus -Status "active" | Should BeNullOrEmpty
-        $d = ConvertFrom-Json $env:PesterTestData
-        $d.status | Should Be "active"
-        $d.message | Should BeNullOrEmpty
-        $d."status-data".ToString() | Should BeNullOrEmpty 
+        $d = ConvertFrom-Yaml $env:PesterTestData
+        $d["status"] | Should Be "active"
+        $d["message"] | Should BeNullOrEmpty
+        $d["status-data"] | Should BeNullOrEmpty 
     }
 
     It "Should set status and message" {
         $env:PesterTestData = '{"message":"","status":"unknown","status-data":{}}'
         Set-JujuStatus -Status "active" -Message "Unit is ready" | Should BeNullOrEmpty
         Assert-MockCalled Invoke-JujuCommand -Times 1 -ModuleName JujuHooks
-        $d = ConvertFrom-Json $env:PesterTestData
-        $d.status | Should Be "active"
-        $d.message | Should Be "Unit is ready"
-        $d."status-data".ToString() | Should BeNullOrEmpty 
+        $d = ConvertFrom-Yaml $env:PesterTestData
+        $d["status"] | Should Be "active"
+        $d["message"] | Should Be "Unit is ready"
+        $d["status-data"] | Should BeNullOrEmpty 
     }
     It "Should not change message if status is unchanged" {
         $env:PesterTestData = '{"message":"","status":"unknown","status-data":{}}'
         Set-JujuStatus -Status "active" -Message "Unit is ready" | Should BeNullOrEmpty
-        $d = ConvertFrom-Json $env:PesterTestData
-        $d.status | Should Be "active"
-        $d.message | Should Be "Unit is ready"
-        $d."status-data".ToString() | Should BeNullOrEmpty
+        $d = ConvertFrom-Yaml $env:PesterTestData
+        $d["status"] | Should Be "active"
+        $d["message"] | Should Be "Unit is ready"
+        $d["status-data"] | Should BeNullOrEmpty
 
         Set-JujuStatus -Status "active" -Message "Unit is almost ready" | Should BeNullOrEmpty
         Assert-MockCalled Invoke-JujuCommand -Times 1 -ModuleName JujuHooks
-        $d.status | Should Be "active"
-        $d.message | Should Be "Unit is ready"
-        $d."status-data".ToString() | Should BeNullOrEmpty
+        $d["status"] | Should Be "active"
+        $d["message"] | Should Be "Unit is ready"
+        $d["status-data"] | Should BeNullOrEmpty
     }
     It "Should Throw an exception on invalid status" {
         { Set-JujuStatus -Status "bogus" -Message "Unit is almost ready" } | Should Throw
@@ -1163,9 +1163,9 @@ Describe "Test Get-JujuAction" {
             Throw "Invalid command"
         }
         if($Command.Count -eq 3){
-            return (ConvertTo-Json $data[$Command[2]])
+            return (ConvertTo-Yaml $data[$Command[2]])
         }
-        return (ConvertTo-Json $data)
+        return (ConvertTo-Yaml $data)
     }
     It "Should send proper command" {
         (Get-JujuAction).GetType() | Should Be "hashtable"

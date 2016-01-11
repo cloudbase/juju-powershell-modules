@@ -411,12 +411,12 @@ function Add-ToUserPath {
 function Get-MarshaledObject {
     <#
     .SYNOPSIS
-    Get a base64 encoded representation of a json encoded powershell object. "Why?" you might ask. Well, in some cases you
+    Get a base64 encoded representation of a yaml encoded powershell object. "Why?" you might ask. Well, in some cases you
     may need to send more complex information through a relation to another charm. This function allows you to send simple
-    powershell objects (hashtables, arrays, etc) as base64 encoded strings. This function first encodes them to json, and
+    powershell objects (hashtables, arrays, etc) as base64 encoded strings. This function first encodes them to yaml, and
     then to base64 encoded strings.
 
-    This also allows us to send the same information to any kind of charm that can unmarshal json to a native type (say python).
+    This also allows us to send the same information to any kind of charm that can unmarshal yaml to a native type (say python).
     .PARAMETER Object
 
     .NOTES
@@ -435,7 +435,7 @@ function Get-MarshaledObject {
         $Object
     )
     PROCESS {
-        $encoded = $Object | ConvertTo-Json
+        $encoded = $Object | ConvertTo-Yaml
         $b64 = ConvertTo-Base64 $encoded
         return $b64
     }
@@ -456,7 +456,7 @@ function Get-UnmarshaledObject {
     )
     PROCESS {
         $decode = ConvertFrom-Base64 $Object
-        $ret = $decode | ConvertFrom-Json
+        $ret = $decode | ConvertFrom-Yaml
         return $ret
     }
 }
