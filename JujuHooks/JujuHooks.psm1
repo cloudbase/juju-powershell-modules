@@ -139,19 +139,11 @@ function Get-JujuCharmConfig {
         [string]$Scope=$null
     )
     PROCESS {
-        $cmd = @("config-get.exe", "--format=json")
+        $cmd = @("config-get.exe", "--format=yaml")
         if ($Scope){
             $cmd += $Scope
         }
-        $obj = (Invoke-JujuCommand -Command $cmd | ConvertFrom-Json)
-        if($Scope) {
-            return $obj
-        }
-        $ret = @{}
-        foreach ($i in $obj.psobject.properties) {
-            $ret[$i.Name] = $i.Value
-        }
-        return $ret
+        return (Invoke-JujuCommand -Command $cmd | ConvertFrom-Yaml)
     }
 }
 
@@ -182,7 +174,7 @@ function Get-JujuRelation {
         [string]$RelationId=$null
     )
     PROCESS {
-        $cmd = @("relation-get.exe", "--format=json")
+        $cmd = @("relation-get.exe", "--format=yaml")
         if ($RelationId) {
             $cmd += "-r"
             $cmd += $RelationId
@@ -204,15 +196,7 @@ function Get-JujuRelation {
                 Throw "Could not find remote unit name"
             }
         }
-        $obj = (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
-        if($Attribute){
-            return $obj
-        }
-        $ret = @{}
-        foreach ($i in $obj.psobject.properties) {
-            $ret[$i.Name] = $i.Value
-        }
-        return $ret
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
     }
 }
 
@@ -273,7 +257,7 @@ function Get-JujuRelationIds {
         [string]$Relation=$null
     )
     PROCESS {
-        $cmd = @("relation-ids.exe", "--format=json")
+        $cmd = @("relation-ids.exe", "--format=yaml")
         if ($Relation) {
             $relationType = $Relation
         }else{
@@ -284,7 +268,7 @@ function Get-JujuRelationIds {
             Throw "No relation type found"
         }
         $cmd += $relationType
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
     }
 }
 
@@ -301,7 +285,7 @@ function Get-JujuRelatedUnits {
         [string]$RelationId=$null
     )
     PROCESS {
-        $cmd = @("relation-list.exe", "--format=json")
+        $cmd = @("relation-list.exe", "--format=yaml")
         if ($RelationId) {
             $r = $RelationId
         } else {
@@ -313,7 +297,7 @@ function Get-JujuRelatedUnits {
         }
         $cmd += "-r" 
         $cmd += $r
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
     }
 }
 
@@ -453,8 +437,8 @@ function Get-JujuUnit {
         [string]$Attribute
     )
     PROCESS {
-        $cmd = @("unit-get.exe", "--format=json", $Attribute)
-        return (Invoke-JujuCommand $cmd | ConvertFrom-Json)
+        $cmd = @("unit-get.exe", "--format=Yaml", $Attribute)
+        return (Invoke-JujuCommand $cmd | ConvertFrom-Yaml)
     }
 }
 
@@ -727,8 +711,8 @@ function Confirm-JujuPortRangeOpen {
 
     )
     PROCESS {
-        $cmd = @("opened-ports.exe", "--format=json")
-        $openedPorts = Invoke-JujuCommand $cmd | ConvertFrom-Json
+        $cmd = @("opened-ports.exe", "--format=Yaml")
+        $openedPorts = Invoke-JujuCommand $cmd | ConvertFrom-Yaml
 
         if (!$openedPorts) {
             return $false
@@ -820,8 +804,8 @@ function Confirm-Leader {
     Check if current unit is leader.
     #>
     PROCESS {
-        $cmd = @("is-leader.exe", "--format=json")
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
+        $cmd = @("is-leader.exe", "--format=Yaml")
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
     }
 }
 
@@ -863,19 +847,11 @@ function Get-LeaderData {
         [string]$Attribute=$null
     )
     PROCESS {
-        $cmd = @("leader-get.exe", "--format=json")
+        $cmd = @("leader-get.exe", "--format=yaml")
         if ($Attribute) {
             $cmd += $Attribute
         }
-        $obj = (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json)
-        if ($Attribute){
-            return $obj
-        }
-        $ret = @{}
-        foreach ($i in $obj.psobject.properties) {
-            $ret[$i.Name] = $i.Value
-        }
-        return $ret
+        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
     }
 }
 
@@ -923,18 +899,13 @@ function Get-JujuStatus {
         [switch]$Full=$false
     )
     PROCESS {
-        $cmd = @("status-get.exe", "--include-data","--format=json")
-        $result = Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Json
+        $cmd = @("status-get.exe", "--include-data","--format=yaml")
+        $result = Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml
 
         if($Full){
-            $ret = @{}
-            foreach ($i in $result.psobject.properties) {
-                # if($i.Value.GetType())
-                $ret[$i.Name] = $i.Value
-            }
-            return $ret
+            return $result
         }
-        return $result.status
+        return $result["status"]
     }
 }
 
@@ -1000,19 +971,11 @@ function Get-JujuAction {
         [string]$Parameter
     )
     PROCESS {
-        $cmd = @("action-get.exe", "--format=json")
+        $cmd = @("action-get.exe", "--format=yaml")
         if($Parameter){
             $cmd += $Parameter
         }
-        $result = (Invoke-JujuCommand $cmd | ConvertFrom-Json)
-        if($Parameter){
-            return $result
-        }
-        $ret = @{}
-        foreach ($i in $result.psobject.properties) {
-            $ret[$i.Name] = $i.Value
-        }
-        return $ret
+        return (Invoke-JujuCommand $cmd | ConvertFrom-Yaml)
     }
 }
 

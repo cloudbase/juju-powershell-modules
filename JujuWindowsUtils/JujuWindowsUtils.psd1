@@ -61,7 +61,7 @@ PowerShellVersion = '3.0'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-RequiredModules = @("JujuUtils","JujuHooks","JujuHelper", "JujuLoger")
+RequiredModules = @("JujuUtils","JujuHooks","JujuHelper", "JujuLoging")
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()

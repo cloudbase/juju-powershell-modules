@@ -148,7 +148,7 @@ Describe "Test Get-JujuRelation" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-get.exe", "--format=json", "-")
+            $expect = @("relation-get.exe", "--format=yaml", "-")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -171,7 +171,7 @@ Describe "Test Get-JujuRelation" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-get.exe", "--format=json", "-", "bogus")
+            $expect = @("relation-get.exe", "--format=yaml", "-", "bogus")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -190,7 +190,7 @@ Describe "Test Get-JujuRelation" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-get.exe", "--format=json", "-r", "amqp:1", "-", "bogus")
+            $expect = @("relation-get.exe", "--format=yaml", "-r", "amqp:1", "-", "bogus")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -210,7 +210,7 @@ Describe "Test Get-JujuRelation" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-get.exe", "--format=json", "-r", "amqp:1", "name", "bogus")
+            $expect = @("relation-get.exe", "--format=yaml", "-r", "amqp:1", "name", "bogus")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -313,7 +313,7 @@ Describe "Test Get-JujuRelationIds" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-ids.exe", "--format=json", "amqp")
+            $expect = @("relation-ids.exe", "--format=yaml", "amqp")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -333,7 +333,7 @@ Describe "Test Get-JujuRelationIds" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-ids.exe", "--format=json", "shared-db")
+            $expect = @("relation-ids.exe", "--format=yaml", "shared-db")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -354,7 +354,7 @@ Describe "Test Get-JujuRelatedUnits" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-list.exe", "--format=json", "-r", "amqp:1")
+            $expect = @("relation-list.exe", "--format=yaml", "-r", "amqp:1")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -373,7 +373,7 @@ Describe "Test Get-JujuRelatedUnits" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-list.exe", "--format=json", "-r","shared-db")
+            $expect = @("relation-list.exe", "--format=yaml", "-r","shared-db")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -391,7 +391,7 @@ Describe "Test Get-JujuRelationForUnit" {
             Param (
                 [array]$Command
             )
-            $expect = @("relation-get.exe", "--format=json", "-r", "amqp:1", "-", "bogus")
+            $expect = @("relation-get.exe", "--format=yaml", "-r", "amqp:1", "-", "bogus")
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
@@ -542,7 +542,7 @@ Describe "Test Get-JujuUnit" {
         if(!($Command[-1] -in @("private-address", "public-address"))){
             Throw "only private-address and public-address are supported"
         }
-        $expect = @("unit-get.exe", "--format=json")
+        $expect = @("unit-get.exe", "--format=yaml")
         if ((Compare-Object $Command ($expect + $Command[-1]))) {
             Throw "Invalid parameters"
         }
@@ -604,7 +604,7 @@ Describe "Test Get-JujuUnitPrivateIP" {
         if(!($Command[-1] -in @("private-address", "public-address"))){
             Throw "only private-address and public-address are supported"
         }
-        $expect = @("unit-get.exe", "--format=json")
+        $expect = @("unit-get.exe", "--format=yaml")
         if ((Compare-Object $Command ($expect + $Command[-1]))) {
             Throw "Invalid parameters"
         }
@@ -745,7 +745,7 @@ Describe "Test Confirm-JujuPortRangeOpen" {
         Param (
             [array]$Command
         )
-        $expect = @("opened-ports.exe", "--format=json")
+        $expect = @("opened-ports.exe", "--format=yaml")
         if((Compare-Object $Command $expect)) {
             Throw "Invalid command"
         }
@@ -904,7 +904,7 @@ Describe "Test Confirm-Leader" {
         Param (
             [array]$Command
         )
-        $expect = @("is-leader.exe", "--format=json")
+        $expect = @("is-leader.exe", "--format=yaml")
         if((Compare-Object $Command $expect)) {
             Throw "Invalid command"
         }
@@ -944,7 +944,7 @@ Describe "Test Get-LeaderData" {
             Param (
                 [array]$Command
             )
-            $expect = @("leader-get.exe", "--format=json")
+            $expect = @("leader-get.exe", "--format=yaml")
             if((Compare-Object $Command $expect)) {
                 Throw "Invalid command"
             }
@@ -963,7 +963,7 @@ Describe "Test Get-LeaderData" {
             Param (
                 [array]$Command
             )
-            $expect = @("leader-get.exe", "--format=json")
+            $expect = @("leader-get.exe", "--format=yaml")
             if((Compare-Object $Command ($expect += $Command[-1]))) {
                 Throw "Invalid command"
             }
@@ -1034,7 +1034,7 @@ Describe "Test Get-JujuStatus" {
         Param (
             [array]$Command
         )
-        $expect = @("status-get.exe", "--include-data","--format=json")
+        $expect = @("status-get.exe", "--include-data","--format=yaml")
         if((Compare-Object $Command $expect)) {
             Throw "Invalid command"
         }
@@ -1048,7 +1048,7 @@ Describe "Test Get-JujuStatus" {
         $r.GetType() | Should Be "hashtable"
         $r["message"] | Should Be "Unit is ready"
         $r["status"] | Should Be "active"
-        $r["status-data"].GetType() | Should Be "System.Management.Automation.PSCustomObject"
+        $r["status-data"].GetType() | Should Be "hashtable"
         $r["status-data"].sample | Should Be 1
     }
 }
@@ -1155,7 +1155,7 @@ Describe "Test Get-JujuAction" {
         if ($Command.Count -gt 3 -or $Command.Count -lt 2){
             Throw "invalid command"
         }
-        $expect = @("action-get.exe", "--format=json")
+        $expect = @("action-get.exe", "--format=yaml")
         if ($Command.Count -eq 3){
             $expect += $Command[-1]
         }
