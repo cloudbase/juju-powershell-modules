@@ -59,7 +59,7 @@ function Grant-Privilege {
         [string]$Grant
     )
     BEGIN {
-        $privBin = (get-command cmd2.exe -ErrorAction SilentlyContinue).source
+        $privBin = (get-command SetUserAccountRights.exe -ErrorAction SilentlyContinue).source
         if(!$privBin) {
             $privBin = Join-Path (Join-Path $moduleHome "Bin") "SetUserAccountRights.exe"
         }
