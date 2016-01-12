@@ -532,3 +532,25 @@ function Get-PSStringParamsFromHashtable {
         return $args -join " "
     }
 }
+
+function Get-RandomString {
+    <#
+    .SYNOPSIS
+    Returns a random string of characters, suitable for passwords
+    .PARAMETER Length
+    length of the random string.
+    #>
+    [CmdletBinding()]
+    Param(
+        [int]$Length=16
+    )
+    PROCESS {
+        $characters = 33..122
+        $passwd = ""
+        for($i=0; $i -lt $Length; $i++){
+        $c = get-random -input $characters
+        $passwd += [char]$c
+        }
+        return $passwd
+    }
+}
