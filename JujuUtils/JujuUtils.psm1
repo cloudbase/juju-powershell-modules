@@ -340,7 +340,9 @@ function Start-ExecuteWithRetry {
                     $ErrorActionPreference = $currentErrorActionPreference
                     throw
                 } else {
-                    Write-HookTracebackToLog $_ -LogLevel WARNING
+                    if($_) {
+                        Write-HookTracebackToLog $_ -LogLevel WARNING
+                    }
                     Start-Sleep $RetryInterval
                 }
             }
@@ -539,13 +541,20 @@ function Get-RandomString {
     Returns a random string of characters, suitable for passwords
     .PARAMETER Length
     length of the random string.
+    .PARAMETER Weak
+    Use a smaller set of characters
     #>
     [CmdletBinding()]
     Param(
-        [int]$Length=16
+        [int]$Length=16,
+        [switch]$Weak=$false
     )
     PROCESS {
-        $characters = 33..122
+        if(!$Weak) {
+            $characters = 33..122
+        }else {
+            $characters = (48..57) + (65..90) + (97..122) + @(64,61,35)
+        }
         $passwd = ""
         for($i=0; $i -lt $Length; $i++){
         $c = get-random -input $characters

@@ -198,8 +198,16 @@ function Write-HookTracebackToLog {
         $name = $MyInvocation.PSCommandPath
         Write-JujuLog "Error while running $name" -LogLevel $LogLevel
         $info = Get-CallStack $ErrorRecord
-        foreach ($i in $info){
-            Write-JujuLog $i -LogLevel $LogLevel
+        if($info[0]){
+            Write-JujuLog $info[0] -LogLevel $LogLevel
+        }
+        if($info[1]) {
+            Write-JujuLog $info[1] -LogLevel $LogLevel
+        }
+        foreach ($i in $info[2].Split("`r`n")){
+            if($i) {
+                Write-JujuLog $i -LogLevel $LogLevel
+            }
         }
     }
 }

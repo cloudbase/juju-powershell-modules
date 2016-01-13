@@ -34,7 +34,7 @@ function Invoke-JujuCommand {
             Throw ("Failed to run: " + ($Command -Join " "))
         }
         if($ret -and $ret.Length -gt 0){
-            return ($ret -as [string])
+            return $ret
         }
         return $false
     }

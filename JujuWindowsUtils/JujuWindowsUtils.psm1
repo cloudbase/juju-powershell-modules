@@ -368,7 +368,7 @@ function Get-AccountObjectByName {
         $u = Get-ManagementObject -Class "Win32_Account" `
                                   -Filter ("Name='{0}'" -f $Username)
         if (!$u) {
-            Throw "User not found: $Username"
+            Throw [System.Management.Automation.ItemNotFoundException] "User not found: $Username"
         }
         return $u
     }
@@ -617,7 +617,7 @@ function Add-WindowsUser {
     PROCESS {
         try {
             $exists = Get-AccountObjectByName $Username
-        } catch {
+        } catch [System.Management.Automation.ItemNotFoundException] {
             $exists = $false
         }
         $cmd = @("net.exe", "user", $Username)
@@ -643,7 +643,11 @@ function Remove-WindowsUser {
         [string]$Username
     )
     PROCESS {
-        $userExists = Get-AccountObjectByName $Username
+        try {
+            $userExists = Get-AccountObjectByName $Username
+        } catch [System.Management.Automation.ItemNotFoundException] {
+            return
+        }
         if ($userExists) {
             $cmd = @("net.exe", "user", $Username, "/delete")
             Invoke-JujuCommand -Command $cmd | Out-Null
