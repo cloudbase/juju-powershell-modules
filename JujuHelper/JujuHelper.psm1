@@ -17,7 +17,18 @@ function Invoke-JujuCommand {
     )
     PROCESS {
         $cmdType = (Get-Command $Command[0]).CommandType
-        $ret = & $Command[0] $Command[1..$Command.Length] 2>&1
+        if($cmdType -eq "Application") {
+            # Some native applications write to stderr instead of stdout. If we redirect stderr
+            # to stdout and have $ErrorActionPreference set to "stop", powershell will stop execution
+            # even though no actual error has happened. Set ErrorActionPreference to SilentlyContinue
+            # until after the native application finishes running. The $LASTEXITCODE variable will still
+            # be set, and that is what we really care about here.
+            $ErrorActionPreference = "SilentlyContinue"
+            $ret = & $Command[0] $Command[1..$Command.Length] 2>&1
+            $ErrorActionPreference = "Stop"
+        } else {
+            $ret = & $Command[0] $Command[1..$Command.Length]
+        }
 
         if($cmdType -eq "Application" -and $LASTEXITCODE){
             Throw ("Failed to run: " + ($Command -Join " "))

@@ -367,7 +367,7 @@ function Get-AccountObjectByName {
     PROCESS {
         $u = Get-ManagementObject -Class "Win32_Account" `
                                   -Filter ("Name='{0}'" -f $Username)
-        if (!$existentUser) {
+        if (!$u) {
             Throw "User not found: $Username"
         }
         return $u
@@ -615,9 +615,13 @@ function Add-WindowsUser {
         [string]$Password
     )
     PROCESS {
-        $existentUser = Get-AccountObjectByName $Username
+        try {
+            $exists = Get-AccountObjectByName $Username
+        } catch {
+            $exists = $false
+        }
         $cmd = @("net.exe", "user", $Username)
-        if (!$existentUser) {
+        if (!$exists) {
             $cmd += @($Password, "/add", "/expires:never", "/active:yes")
         } else {
             $cmd += $Password
