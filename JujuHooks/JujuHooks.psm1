@@ -330,7 +330,6 @@ function Get-JujuRelationForUnit {
         # create a temporary hashtable. Cannot modify a hashtable we are iterating through.
         $new = @{}
         foreach ($i in $relation.keys) {
-            Write-JujuInfo ("Relation $i`: " + $relation[$i])
             if ($i.EndsWith("-list")) {
                 $new[$i] = $relation[$i].Split()
             } else {
@@ -557,10 +556,7 @@ function Get-JujuRelationContext {
         $relData = Get-JujuRelationsOfType -Relation $Relation
         foreach($r in $relData) {
             $ctx = @{}
-            Write-JujuInfo $r.Keys
-            Write-JujuInfo $r.Values
             foreach($i in $RequiredContext.Keys){
-                Write-JujuInfo ("$i is --> " + $r[$i])
                 $ctx[$i] = $r[$i]
             }
             $complete = Confirm-ContextComplete -Context $ctx
@@ -568,7 +564,6 @@ function Get-JujuRelationContext {
                 continue
             }
             foreach($i in $OptionalContext.Keys) {
-                Write-JujuInfo ("Optional: $i is --> " + $r[$i])
                 $ctx[$i] = $r[$i]
             }
             return $ctx
