@@ -27,7 +27,7 @@ function Confirm-ContextComplete {
     <#
     .SYNOPSIS
      Loops through the provided context and returns either $true or $false. If any item
-     in the context is empty, $null or $false, the context is incomplete and this will return $false.
+     in the context is empty or $null, the context is incomplete and this will return $false.
     .PARAMETER Context
      This parameter holds the context to be checked. Contexts must be hashtables.
     #>
@@ -42,7 +42,7 @@ function Confirm-ContextComplete {
             return $false
         }
         foreach ($i in $Context.GetEnumerator()) {
-            if (!$i.Value) {
+            if ($i.Value -eq $null) {
                 return $false
             }
         }
@@ -143,7 +143,7 @@ function Get-JujuCharmConfig {
         if ($Scope){
             $cmd += $Scope
         }
-        return (Invoke-JujuCommand -Command $cmd | ConvertFrom-Yaml)
+        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
     }
 }
 
@@ -196,7 +196,7 @@ function Get-JujuRelation {
                 Throw "Could not find remote unit name"
             }
         }
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
+        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
     }
 }
 
@@ -275,7 +275,7 @@ function Get-JujuRelationIds {
             Throw "No relation type found"
         }
         $cmd += $relationType
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
+        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
     }
 }
 
@@ -304,7 +304,7 @@ function Get-JujuRelatedUnits {
         }
         $cmd += "-r" 
         $cmd += $r
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
+        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
     }
 }
 
@@ -329,11 +329,12 @@ function Get-JujuRelationForUnit {
         $relation = Get-JujuRelation -Unit $Unit -RelationId $RelationId
         # create a temporary hashtable. Cannot modify a hashtable we are iterating through.
         $new = @{}
-        foreach ($i in $relation.GetEnumerator()) {
-            if ($i.Name.EndsWith("-list")) {
-                $new[$i.Name] = $relation[$i.Name].Split()
+        foreach ($i in $relation.keys) {
+            Write-JujuInfo ("Relation $i`: " + $relation[$i])
+            if ($i.EndsWith("-list")) {
+                $new[$i] = $relation[$i].Split()
             } else {
-                $new[$i.Name] = $relation[$i.Name]
+                $new[$i] = $relation[$i]
             }
         }
         return $new
@@ -445,7 +446,7 @@ function Get-JujuUnit {
     )
     PROCESS {
         $cmd = @("unit-get.exe", "--format=yaml", $Attribute)
-        return (Invoke-JujuCommand $cmd | ConvertFrom-Yaml)
+        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
     }
 }
 
@@ -548,18 +549,27 @@ function Get-JujuRelationContext {
         [Parameter(Mandatory=$true)]
         [string]$Relation,
         [Parameter(Mandatory=$true)]
-        [Hashtable]$RequiredContext
+        [Hashtable]$RequiredContext,
+        [Parameter(Mandatory=$false)]
+        [hashtable]$OptionalContext=@()
     )
     PROCESS {
         $relData = Get-JujuRelationsOfType -Relation $Relation
         foreach($r in $relData) {
             $ctx = @{}
+            Write-JujuInfo $r.Keys
+            Write-JujuInfo $r.Values
             foreach($i in $RequiredContext.Keys){
+                Write-JujuInfo ("$i is --> " + $r[$i])
                 $ctx[$i] = $r[$i]
             }
             $complete = Confirm-ContextComplete -Context $ctx
             if(!$complete) {
                 continue
+            }
+            foreach($i in $OptionalContext.Keys) {
+                Write-JujuInfo ("Optional: $i is --> " + $r[$i])
+                $ctx[$i] = $r[$i]
             }
             return $ctx
         }
@@ -812,7 +822,7 @@ function Confirm-Leader {
     #>
     PROCESS {
         $cmd = @("is-leader.exe", "--format=yaml")
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
+        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
     }
 }
 
@@ -858,7 +868,7 @@ function Get-LeaderData {
         if ($Attribute) {
             $cmd += $Attribute
         }
-        return (Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml)
+        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
     }
 }
 
@@ -907,7 +917,7 @@ function Get-JujuStatus {
     )
     PROCESS {
         $cmd = @("status-get.exe", "--include-data","--format=yaml")
-        $result = Invoke-JujuCommand -Cmd $cmd | ConvertFrom-Yaml
+        $result = (Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml
 
         if($Full){
             return $result
@@ -982,7 +992,7 @@ function Get-JujuAction {
         if($Parameter){
             $cmd += $Parameter
         }
-        return (Invoke-JujuCommand $cmd | ConvertFrom-Yaml)
+        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
     }
 }
 
