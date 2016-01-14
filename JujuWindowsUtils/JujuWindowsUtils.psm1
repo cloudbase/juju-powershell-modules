@@ -529,6 +529,28 @@ function Get-AdministratorsGroup {
     }
 }
 
+function Confirm-IsMemberOfGroup {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$GroupSID,
+        [Parameter(Mandatory=$true)]
+        [string]$Username
+    )
+    PROCESS {
+        $inDomain = (Get-ManagementObject -Class Win32_ComputerSystem).PartOfDomain
+        if($inDomain){
+            $domainName = (Get-ManagementObject -Class Win32_NTDomain).DomainName
+            $myDomain = [Environment]::UserDomainName
+            if($domainName -eq $myDomain) {
+                return (Get-UserGroupMembership -Username $Username -GroupSID $GroupSID)
+            }
+        }
+        $name = Get-GroupNameFromSID -SID $GroupSID
+        return Get-LocalUserGroupMembership -Group $name -Username $Username
+    }
+}
+
 function Get-LocalUserGroupMembership {
     [CmdletBinding()]
     Param(
@@ -661,7 +683,7 @@ function Add-UserToLocalGroup {
         if($GroupName) {
             $GroupSID = (Get-GroupObjectByName $GroupName).SID
         }
-        $isInGroup = Get-LocalUserGroupMembership -User $Username -Group $GroupName
+        $isInGroup = Confirm-IsMemberOfGroup -User $Username -Group $GroupSID
         if($isInGroup){
             return
         }
