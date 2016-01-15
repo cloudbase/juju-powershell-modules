@@ -12,14 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-$version = $PSVersionTable.PSVersion.Major
-if ($version -lt 4){
-    # Get-CimInstance is not supported on powershell versions earlier then 4
-    New-Alias -Name Get-ManagementObject -Value Get-WmiObject
-}else{
-    New-Alias -Name Get-ManagementObject -Value Get-CimInstance
-}
-
 $moduleHome = Split-Path -Parent $MyInvocation.MyCommand.Path
 $administratorsGroupSID = "S-1-5-32-544"
 $computername = [System.Net.Dns]::GetHostName()
