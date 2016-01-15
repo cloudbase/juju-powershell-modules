@@ -89,7 +89,7 @@ CmdletsToExport = '*'
 VariablesToExport = '*'
 
 # Aliases to export from this module
-AliasesToExport = "Is-ComponentInstalled","Change-ServiceLogon","Is-ServiceAlive","Get-WindowsUser","Get-WindowsGroup","Convert-SIDToFriendlyName","Check-Membership","Create-LocalAdmin","Delete-WindowsUser"
+AliasesToExport = "Get-ManagementObject","Is-ComponentInstalled","Change-ServiceLogon","Is-ServiceAlive","Get-WindowsUser","Get-WindowsGroup","Convert-SIDToFriendlyName","Check-Membership","Create-LocalAdmin","Delete-WindowsUser"
 
 # List of all modules packaged with this module
 # ModuleList = @()
