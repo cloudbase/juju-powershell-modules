@@ -80,7 +80,10 @@ PowerShellVersion = '3.0'
 # NestedModules = @("JujuHelper.psm1")
 
 # Functions to export from this module
-FunctionsToExport = "Invoke-JujuCommand","Invoke-FastWebRequest","Get-RandomString"
+FunctionsToExport = @(
+    "Invoke-JujuCommand",
+    "Invoke-FastWebRequest",
+    "Get-RandomString")
 
 # Cmdlets to export from this module
 CmdletsToExport = '*'

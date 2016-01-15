@@ -16,6 +16,21 @@ $moduleHome = Split-Path -Parent $MyInvocation.MyCommand.Path
 $administratorsGroupSID = "S-1-5-32-544"
 $computername = [System.Net.Dns]::GetHostName()
 
+function Start-TimeResync {
+    Write-JujuInfo "Synchronizing time..."
+    $ts = @("tzutil.exe", "/s", "UTC")
+    Invoke-JujuCommand -Command $ts | Out-Null
+
+    try {
+        Start-Service "w32time"
+        $manualTS = @("w32tm.exe", "/config", "/manualpeerlist:time.windows.com", "/syncfromflags:manual", "/update")
+        Invoke-JujuCommand -Command $manualTS | Out-Null
+    } catch {
+        # not a fatal error
+        Write-JujuErr "Failed to synchronize time: $_"
+    }
+}
+
 function Get-ServerLevelKey {
     <#
     .SYNOPSIS

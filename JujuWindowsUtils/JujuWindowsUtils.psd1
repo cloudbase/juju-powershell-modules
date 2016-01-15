@@ -80,7 +80,32 @@ RequiredModules = @("JujuUtils","JujuHooks","JujuHelper", "JujuLoging")
 # NestedModules = @("JujuWindowsUtils.psm1")
 
 # Functions to export from this module
-FunctionsToExport = "Add-UserToLocalGroup","Grant-Privilege","Get-IsNanoServer","Start-ProcessRedirect","Get-ComponentIsInstalled","Set-ServiceLogon","Get-ServiceIsRunning","Install-Msi","Expand-ZipArchive","Install-WindowsFeatures","Get-AccountObjectByName","Get-GroupObjectByName","Get-AccountObjectBySID","Get-GroupObjectBySID","Get-AccountNameFromSID","Get-GroupNameFromSID","Get-AdministratorAccount","Get-AdministratorsGroup","Get-UserGroupMembership","New-LocalAdmin","Add-WindowsUser","Remove-WindowsUser","Open-Ports","Import-Certificate"
+FunctionsToExport = @(
+    "Start-TimeResync",
+    "Add-UserToLocalGroup",
+    "Grant-Privilege",
+    "Get-IsNanoServer",
+    "Start-ProcessRedirect",
+    "Get-ComponentIsInstalled",
+    "Set-ServiceLogon",
+    "Get-ServiceIsRunning",
+    "Install-Msi",
+    "Expand-ZipArchive",
+    "Install-WindowsFeatures",
+    "Get-AccountObjectByName",
+    "Get-GroupObjectByName",
+    "Get-AccountObjectBySID",
+    "Get-GroupObjectBySID",
+    "Get-AccountNameFromSID",
+    "Get-GroupNameFromSID",
+    "Get-AdministratorAccount",
+    "Get-AdministratorsGroup",
+    "Get-UserGroupMembership",
+    "New-LocalAdmin",
+    "Add-WindowsUser",
+    "Remove-WindowsUser",
+    "Open-Ports",
+    "Import-Certificate")
 
 # Cmdlets to export from this module
 CmdletsToExport = '*'
@@ -89,7 +114,16 @@ CmdletsToExport = '*'
 VariablesToExport = '*'
 
 # Aliases to export from this module
-AliasesToExport = "Is-ComponentInstalled","Change-ServiceLogon","Is-ServiceAlive","Get-WindowsUser","Get-WindowsGroup","Convert-SIDToFriendlyName","Check-Membership","Create-LocalAdmin","Delete-WindowsUser"
+AliasesToExport = @(
+    "Is-ComponentInstalled",
+    "Change-ServiceLogon",
+    "Is-ServiceAlive",
+    "Get-WindowsUser",
+    "Get-WindowsGroup",
+    "Convert-SIDToFriendlyName",
+    "Check-Membership",
+    "Create-LocalAdmin",
+    "Delete-WindowsUser")
 
 # List of all modules packaged with this module
 # ModuleList = @()
