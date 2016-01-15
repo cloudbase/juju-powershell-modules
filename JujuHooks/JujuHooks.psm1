@@ -550,7 +550,7 @@ function Get-JujuRelationContext {
         [Parameter(Mandatory=$true)]
         [Hashtable]$RequiredContext,
         [Parameter(Mandatory=$false)]
-        [hashtable]$OptionalContext=@()
+        [hashtable]$OptionalContext=@{}
     )
     PROCESS {
         $relData = Get-JujuRelationsOfType -Relation $Relation
