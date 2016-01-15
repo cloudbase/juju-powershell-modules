@@ -211,3 +211,5 @@ function Write-HookTracebackToLog {
         }
     }
 }
+
+Export-ModuleMember -Function * -Alias *

@@ -1198,3 +1198,5 @@ New-Alias -Name relations_of_type -Value Get-JujuRelationsOfType
 New-Alias -Name is_relation_made -Value Confirm-JujuRelationCreated
 New-Alias -Name unit_get -Value Get-JujuUnit
 New-Alias -Name unit_private_ip -Value Get-JujuUnitPrivateIP
+
+Export-ModuleMember -Function * -Alias *

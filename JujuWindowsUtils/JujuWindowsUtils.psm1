@@ -841,3 +841,5 @@ New-Alias -Name Convert-SIDToFriendlyName -Value Get-AccountNameFromSID
 New-Alias -Name Check-Membership -Value Get-UserGroupMembership
 New-Alias -Name Create-LocalAdmin -Value New-LocalAdmin
 New-Alias -Name Delete-WindowsUser -Value Remove-WindowsUser
+
+Export-ModuleMember -Function * -Alias *

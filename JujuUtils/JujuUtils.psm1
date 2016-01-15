@@ -563,3 +563,5 @@ function Get-RandomString {
         return $passwd
     }
 }
+
+Export-ModuleMember -Function * -Alias *
