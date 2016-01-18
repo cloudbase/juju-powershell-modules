@@ -63,7 +63,6 @@ FunctionsToExport = @(
     "Compare-HashTables",
     "Start-ExternalCommand",
     "Start-ExecuteWithRetry",
-    "Test-FileIntegrity",
     "Get-SanePath",
     "Add-ToUserPath",
     "Get-MarshaledObject",

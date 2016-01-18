@@ -350,26 +350,6 @@ function Start-ExecuteWithRetry {
     }
 }
 
-function Test-FileIntegrity {
-    [CmdletBinding()]
-    Param(
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)]
-        [string]$File,
-        [Parameter(Mandatory=$true)]
-        [string]$ExpectedHash,
-        [Parameter(Mandatory=$false)]
-        [ValidateSet("SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160")]
-        [string]$Algorithm="SHA1"
-    )
-    PROCESS {
-        $hash = (Get-FileHash -Path $File -Algorithm $Algorithm).Hash
-        if ($hash -ne $ExpectedHash) {
-            throw ("File integrity check failed for {0}. Expected {1}, got {2}" -f @($File, $ExpectedHash, $hash))
-        }
-        return $true
-    }
-}
-
 function Get-SanePath {
     <#
     .SYNOPSIS

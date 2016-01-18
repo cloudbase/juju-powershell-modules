@@ -49,6 +49,7 @@ PowerShellVersion = '3.0'
 FunctionsToExport = @(
     "Invoke-JujuCommand",
     "Invoke-FastWebRequest",
+    "Test-FileIntegrity",
     "Get-RandomString")
 
 # Cmdlets to export from this module
