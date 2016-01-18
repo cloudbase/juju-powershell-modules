@@ -12,8 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-$ErrorActionPreference = "Stop"
-
 $version = $PSVersionTable.PSVersion.Major
 if ($version -lt 4){
     # Get-CimInstance is not supported on powershell versions earlier then 4
