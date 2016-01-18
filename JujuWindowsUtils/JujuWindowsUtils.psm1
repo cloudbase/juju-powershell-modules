@@ -846,6 +846,24 @@ function Import-Certificate() {
     }
 }
 
+function Set-PowerProfile {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("PowerSave", "Balanced", "Performance")]
+        [string]$PowerProfile
+    )
+    PROCESS {
+        $guids = @{
+            "PowerSave"="a1841308-3541-4fab-bc81-f71556f20b4a";
+            "Balanced"="381b4222-f694-41f0-9685-ff5bb260df2e";
+            "Performance"="8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c";
+        }
+        $cmd = @("PowerCfg.exe", "/S", $guids[$PowerProfile])
+        Invoke-JujuCommand -Command $cmd | Out-Null
+    }
+}
+
 # Backwards compatible aliases
 New-Alias -Name Is-ComponentInstalled -Value Get-ComponentIsInstalled
 New-Alias -Name Change-ServiceLogon -Value Set-ServiceLogon
