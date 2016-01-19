@@ -12,6 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+Import-Module powershell-yaml
+Import-Module JujuHelper
+Import-Module JujuLoging
 
 function Get-StateInformationRepository {
     <#
