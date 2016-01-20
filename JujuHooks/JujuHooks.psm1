@@ -455,7 +455,7 @@ function Get-JujuUnit {
 function Confirm-IP {
     <#
     .SYNOPSIS
-     Check if the parameter passed as a string, is a valid IPv4 address
+     Check if the parameter passed as a string, is a valid IPv4/IPv6 address
     .PARAMETER IP
      the IP address to check
     #>
