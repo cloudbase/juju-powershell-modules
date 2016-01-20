@@ -85,7 +85,7 @@ function Test-FileIntegrity {
 function Invoke-FastWebRequest {
     <#
     .SYNOPSIS
-    Invoke-FastWebRequest downloads a file form the web via HTTP. This function will work on all modern windows versions,
+    Invoke-FastWebRequest downloads a file from the web via HTTP. This function will work on all modern windows versions,
     including Windows Server Nano. This function also allows file integrity checks using common hashing algorithms:
 
     "SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160"
