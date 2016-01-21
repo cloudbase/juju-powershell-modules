@@ -239,8 +239,7 @@ function Set-JujuRelation {
         }
         $settingsFile = Join-Path $env:tmp ((Get-RandomString -Weak -Length 32) + ".yaml")
         if($Settings.Count){
-            $yml = (ConvertTo-Yaml $Settings) -as 'System.Collections.Generic.List[string]'
-            [System.IO.File]::WriteAllLines($settingsFile, $yml)
+            ConvertTo-Yaml $Settings -OutFile $settingsFile -Force
         }
         $cmd += @("--file", $settingsFile)
         try{
