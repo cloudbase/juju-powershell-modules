@@ -971,7 +971,7 @@ function Start-ProcessAsUser {
         [parameter()]
         [bool]$LoadUserProfile = $true,
         [ValidateSet("InteractiveLogon", "NetworkLogon", "BatchLogon", "ServiceLogon")]
-        [string]$LogonType="BatchLogon"
+        [string]$LogonType="ServiceLogon"
     )
 
     Process
