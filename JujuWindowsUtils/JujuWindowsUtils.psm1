@@ -81,7 +81,7 @@ function Grant-Privilege {
         }
     }
     PROCESS {
-        Write-JujuInfo "Running: $privBin -g $User -v $Grant"
+        #Write-JujuInfo "Running: $privBin -g $User -v $Grant"
         $cmd = @($privBin, "-g", "$User", "-v", $Grant)
         Invoke-JujuCommand -Command $cmd | Out-Null
     }
@@ -866,6 +866,134 @@ function Set-PowerProfile {
         }
         $cmd = @("PowerCfg.exe", "/S", $guids[$PowerProfile])
         Invoke-JujuCommand -Command $cmd | Out-Null
+    }
+}
+
+function Get-IniFileValue {
+    [CmdletBinding()]
+    param
+    (
+        [parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [string]$Key,
+
+        [parameter()]
+        [string]$Section = "DEFAULT",
+
+        [parameter()]
+        [string]$Default = $null,
+
+        [parameter(Mandatory=$true)]
+        [string]$Path
+    )
+    process {
+        $api = [Cloudbase.PSUtils.Win32IniApi](New-Object "Cloudbase.PSUtils.Win32IniApi")
+        return $api.GetIniValue($Section, $Key, $Default, $Path)
+    }
+}
+
+function Set-IniFileValue {
+    [CmdletBinding()]
+    param
+    (
+        [parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [string]$Key,
+
+        [parameter()]
+        [string]$Section = "DEFAULT",
+
+        [parameter(Mandatory=$true)]
+        [string]$Value,
+
+        [parameter(Mandatory=$true)]
+        [string]$Path
+    )
+    process {
+        $api = [Cloudbase.PSUtils.Win32IniApi](New-Object "Cloudbase.PSUtils.Win32IniApi")
+        $api.SetIniValue($Section, $Key, $Value, $Path)
+    }
+}
+
+function Remove-IniFileValue {
+    [CmdletBinding()]
+    param
+    (
+        [parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [string]$Key,
+
+        [parameter()]
+        [string]$Section = "DEFAULT",
+
+        [parameter(Mandatory=$true)]
+        [string]$Path
+    )
+    process {
+        $api = [Cloudbase.PSUtils.Win32IniApi](New-Object "Cloudbase.PSUtils.Win32IniApi")
+        $api.SetIniValue($Section, $Key, $null, $Path)
+    }
+}
+
+
+function Start-ProcessAsUser {
+    <#
+    .SYNOPSIS
+    Starts a process under a user defined by the credentials given as a parameter.
+    This command is similar to Linux "su", making possible to run a command under
+    different Windows users, for example a user which is a domain administrator.
+    .DESCRIPTION
+    It uses a wrapper of advapi32.dll functionality,
+    [PSCloudbase.ProcessManager]::RunProcess, which is defined as native C++ code
+    in the same file.
+    .PARAMETER Command
+    The executable file path.
+    .PARAMETER Arguments
+    The arguments that will be sent to the process.
+    .PARAMETER Credential
+    The credential under which the newly spawned process will run. A credential can
+    be created by instantiating System.Management.Automation.PSCredential class.
+    .PARAMETER LoadUserProfile
+    Whether to load the user profile in case the process needs it.
+    .EXAMPLE
+    $exitCode = Start-ProcessAsUser -Command "$PShome\powershell.exe" -Arguments @("script.ps1", "arg1", "arg2") -Credential $credential
+    .Notes
+    The user under which this command is run must have the appropriate privilleges
+    and to be a local administrator in order to be able to execute the command
+    successfully.
+    #>
+    [CmdletBinding()]
+    Param
+    (
+        [parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [String]$Command,
+        [parameter()]
+        [array]$Arguments,
+        [parameter(Mandatory=$true)]
+        [PSCredential]$Credential,
+        [parameter()]
+        [bool]$LoadUserProfile = $true,
+        [ValidateSet("InteractiveLogon", "NetworkLogon", "BatchLogon", "ServiceLogon")]
+        [string]$LogonType="BatchLogon"
+    )
+
+    Process
+    {
+        $nc = $Credential.GetNetworkCredential()
+        $domain = "."
+        if($nc.Domain)
+        {
+            $domain = $nc.Domain
+        }
+        $logonTypes = @{
+            "InteractiveLogon" = 2;
+            "NetworkLogon" = 3;
+            "BatchLogon" = 4;
+            "ServiceLogon" = 5;
+        }
+
+        $l = $logonTypes[$LogonType]
+
+        return [Cloudbase.PSUtils.ProcessManager]::RunProcess(
+            $nc.UserName, $nc.Password, $domain, $Command, $Arguments,
+            $LoadUserProfile, $l)
     }
 }
 
