@@ -1231,10 +1231,10 @@ Describe "Test Set-CharmState" {
         $p = "HKCU:\Software\Juju-Charms"
         (Test-Path -Path $p) | Should Be $false
         Set-CharmState -Namespace "active-directory" -Key "username" -Value "guest" | Should BeNullOrEmpty
-        $fullKey = "active-directoryusername"
-        (Test-Path -Path $p) | Should Be $true
-        $k = (Get-ItemProperty -Path $p -Name $fullKey)
-        (Select-Object -InputObject $k -ExpandProperty $fullKey) | Should Be "guest"
+        $keyPath = Join-Path $p "active-directory"
+        (Test-Path -Path $keyPath) | Should Be $true
+        $k = (Get-ItemProperty -Path $keyPath -Name "username")
+        (Select-Object -InputObject $k -ExpandProperty "username") | Should Be (ConvertTo-Yaml "guest")
     }
 }
 

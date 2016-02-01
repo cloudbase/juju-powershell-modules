@@ -1080,16 +1080,19 @@ function Set-CharmState {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [Alias("CharmName")]
         [string]$Namespace,
         [Parameter(Mandatory=$true)]
         [string]$Key,
         [Parameter(Mandatory=$true)]
         [Alias("Val")]
-        [string]$Value
+        $Value
     )
     PROCESS {
+        if(!$Namespace) {
+            $Namespace = (Get-JujuLocalUnit).Replace('/', "-")
+        }
         $CharmStateKey = Get-StateInformationRepository
         $keyDirExists = Test-Path -Path $CharmStateKey
         if ($keyDirExists -eq $false) {
@@ -1098,10 +1101,15 @@ function Set-CharmState {
             New-Item -Path $keyDir -Name $keyName | Out-Null
         }
 
-        $fullKey = ($Namespace + $Key)
-        $property = New-ItemProperty -Path $CharmStateKey `
-                                     -Name $fullKey `
-                                     -Value $Value `
+        $unitKeyDir = Join-Path $CharmStateKey $Namespace
+        if(!(Test-Path $unitKeyDir)){
+            New-Item -Path $CharmStateKey -Name $Namespace | Out-Null
+        }
+
+        $convertedValue = ConvertTo-Yaml $Value
+        $property = New-ItemProperty -Path $unitKeyDir `
+                                     -Name $Key `
+                                     -Value $convertedValue `
                                      -PropertyType String `
                                      -ErrorAction SilentlyContinue
         if ($property -eq $null) {
@@ -1121,22 +1129,26 @@ function Get-CharmState {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [Alias("CharmName")]
         [string]$Namespace,
         [Parameter(Mandatory=$true)]
         [string]$Key
     )
     PROCESS {
+        if(!$Namespace) {
+            $Namespace = (Get-JujuLocalUnit).Replace('/', "-")
+        }
         $CharmStateKey = Get-StateInformationRepository
-        $fullKey = ($Namespace + $Key)
-        $property = Get-ItemProperty -Path $CharmStateKey `
-                                     -Name $fullKey `
+        $unitKeyDir = Join-Path $CharmStateKey $Namespace
+
+        $property = Get-ItemProperty -Path $unitKeyDir `
+                                     -Name $Key `
                                      -ErrorAction SilentlyContinue
 
         if ($property) {
-            $state = Select-Object -InputObject $property -ExpandProperty $fullKey
-            return $state
+            $state = Select-Object -InputObject $property -ExpandProperty $Key
+            return (ConvertFrom-Yaml $state)
         }
         return
     }
@@ -1153,17 +1165,20 @@ function Remove-CharmState {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory=$false)]
         [Alias("CharmName")]
         [string]$Namespace,
         [Parameter(Mandatory=$true)]
         [string]$Key
     )
     PROCESS {
+        if(!$Namespace) {
+            $Namespace = (Get-JujuLocalUnit).Replace('/', "-")
+        }
         $CharmStateKey = Get-StateInformationRepository
-        $fullKey = ($Namespace + $Key)
+        $unitKeyDir = Join-Path $CharmStateKey $Namespace
         if (Get-CharmState $Namespace $Key) {
-            Remove-ItemProperty -Path $CharmStateKey -Name $fullKey
+            Remove-ItemProperty -Path $unitKeyDir -Name $Key
         }
     }
 }
