@@ -14,7 +14,7 @@
 
 Import-Module powershell-yaml
 Import-Module JujuHelper
-Import-Module JujuLoging
+Import-Module JujuLogging
 
 function Get-StateInformationRepository {
     <#
