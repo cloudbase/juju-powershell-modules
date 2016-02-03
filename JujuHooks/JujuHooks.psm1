@@ -501,7 +501,6 @@ function Resolve-Address {
         if(!$ip){
             Throw ("Could not resolve address {0} to IP" -f $Address)
         }
-        Write-JujuLog "Returning $ip" -LogLevel INFO
         return $ip
     }
 }
