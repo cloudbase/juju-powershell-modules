@@ -48,7 +48,7 @@ PowerShellVersion = '3.0'
 ScriptsToProcess = @("Load-Assemblies.ps1")
 
 # Modules that must be imported into the global environment prior to importing this module
-# RequiredModules = @("JujuUtils","JujuHooks","JujuHelper", "JujuLoging")
+# RequiredModules = @("JujuUtils","JujuHooks","JujuHelper", "JujuLogging")
 
 # Functions to export from this module
 FunctionsToExport = @(

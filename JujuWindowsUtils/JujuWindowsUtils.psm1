@@ -13,7 +13,7 @@
 #    under the License.
 
 Import-Module JujuHelper
-Import-Module JujuLoging
+Import-Module JujuLogging
 Import-Module JujuHooks
 Import-Module JujuUtils
 
