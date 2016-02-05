@@ -1086,7 +1086,7 @@ function Set-CharmState {
         [string]$Key,
         [Parameter(Mandatory=$true)]
         [Alias("Val")]
-        $Value
+        [string]$Value
     )
     PROCESS {
         if(!$Namespace) {
