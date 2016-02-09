@@ -1112,7 +1112,7 @@ function Set-CharmState {
                                      -PropertyType String `
                                      -ErrorAction SilentlyContinue
         if ($property -eq $null) {
-            Set-ItemProperty -Path $CharmStateKey -Name $fullKey -Value $Value
+            Set-ItemProperty -Path $unitKeyDir -Name $Key -Value $Value
         }
     }
 }
