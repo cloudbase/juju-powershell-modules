@@ -333,7 +333,7 @@ function Get-JujuRelationForUnit {
         $new = @{}
         foreach ($i in $relation.keys) {
             if ($i.EndsWith("-list")) {
-                $new[$i] = $relation[$i].Split()
+                $new[$i.Substring(0, $i.Length-5)] = $relation[$i].Split()
             } else {
                 $new[$i] = $relation[$i]
             }
