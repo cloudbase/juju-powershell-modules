@@ -154,6 +154,8 @@ function Get-ComponentIsInstalled {
     This commandlet checks if a program is installed and returns a boolean value. Exact product names must be used, wildcards are not accepted.
     .PARAMETER Name
     The name of the product to check for
+    .PARAMETER Exact
+    Search for exact name or allow wildcards such as "%"
 
     .NOTES
     This commandlet is not supported on Nano server
@@ -161,7 +163,8 @@ function Get-ComponentIsInstalled {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
-        [string]$Name
+        [string]$Name,
+        [switch]$Exact=$true
     )
     BEGIN {
         if((Get-IsNanoServer)) {
@@ -172,10 +175,14 @@ function Get-ComponentIsInstalled {
         }
     }
     PROCESS {
-        $products = Get-ManagementObject -Class Win32_Product
-        $component = $products | Where-Object { $_.Name -eq $Name}
+        $modifier = " LIKE "
+        if ($Exact){
+            $modifier = "="
+        }
+        $query = ("Name{0}'{1}'" -f @($modifier, $Name))
+        $products = Get-ManagementObject -Class Win32_Product -Filter $query
 
-        return ($component -ne $null)
+        return ($products.Count -ne 0)
     }
 }
 
