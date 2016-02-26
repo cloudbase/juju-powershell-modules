@@ -414,6 +414,24 @@ function Get-GroupObjectByName {
     }
 }
 
+function Get-Sid2User {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$SID
+    )
+    PROCESS {
+        if((Get-IsNanoServer)) {
+            return
+        }
+        $objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
+        $objUser = $objSID.Translate( [System.Security.Principal.NTAccount])
+        if($objUser) {
+            return $objUser.Value
+        }
+    }
+}
+
 function Get-AccountObjectBySID {
     <#
     .SYNOPSIS
@@ -441,6 +459,12 @@ function Get-AccountObjectBySID {
         $query = ("SID{0}'{1}'" -f @($modifier, $SID))
         $s = Get-ManagementObject -Class Win32_UserAccount -Filter $query
         if(!$s){
+            if($Exact) {
+                $s = Get-Sid2User -SID $SID
+                if($s) {
+                    return $s
+                }
+            }
             Throw "SID not found: $SID"
         }
         return $s
@@ -474,6 +498,12 @@ function Get-GroupObjectBySID {
         $query = ("SID{0}'{1}'" -f @($modifier, $SID))
         $s = Get-ManagementObject -Class Win32_Group -Filter $query
         if(!$s){
+            if($Exact) {
+                $s = Get-Sid2User -SID $SID
+                if($s) {
+                    return $s
+                }
+            }
             Throw "SID not found: $SID"
         }
         return $s
