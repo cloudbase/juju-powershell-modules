@@ -65,6 +65,7 @@ FunctionsToExport = @(
     "Start-ExecuteWithRetry",
     "Get-SanePath",
     "Add-ToUserPath",
+    "Add-ToSystemPath",
     "Get-MarshaledObject",
     "Get-UnmarshaledObject",
     "Get-CmdStringFromHashtable",
