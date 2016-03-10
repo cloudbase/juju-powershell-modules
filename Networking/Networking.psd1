@@ -60,7 +60,9 @@ FunctionsToExport = @(
     "ConvertTo-Mask",
     "Get-IfaceWithSameNetwork",
     "Get-BroadcastAddress",
-    "Get-NetworkAddress")
+    "Get-NetworkAddress",
+    "Set-InterfaceDynamicDNSRegistration",
+    "Get-NetIpFromNetwork")
 
 # Cmdlets to export from this module
 CmdletsToExport = '*'
