@@ -345,25 +345,41 @@ function Expand-ZipArchive {
 }
 
 function Install-WindowsFeatures {
+    <#
+    .SYNOPSIS
+    This function installs windows features. For Nano, you already need to have the features installed, and this function merely enables them.
+    .PARAMETER Features
+    Array of Windows feature names that will be installed (or enabled on Nano).
+    #>
     [CmdletBinding()]
-    param(
+    Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [array]$Features
     )
     PROCESS {
         $rebootNeeded = $false
-        foreach ($feature in $Features) {
-            $state = Start-ExecuteWithRetry -Command {
-                Install-WindowsFeature -Name $feature -ErrorAction Stop
-            }
-            if ($state.Success -eq $true) {
-                if ($state.RestartNeeded -eq 'Yes') {
-                    $rebootNeeded = $true
+            foreach ($feature in $Features) {
+                if (Get-IsNanoServer) {
+                    $featureStat = Get-WindowsOptionalFeature -Online -FeatureName $feature
+                    if ($featureStat.State -ne "Enabled") {
+                        $featureInstall = Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart
+                        if ($featureInstall.RestartNeeded) {
+                            $rebootNeeded = $true
+                        }
+                    } elseif ($featureStat.RestartNeeded) {
+                        $rebootNeeded = $true
+                    }
+                } else {
+                    $state = Install-WindowsFeature -Name $feature -ErrorAction Stop
+                    if ($state.Success -eq $true) {
+                        if ($state.RestartNeeded -eq 'Yes') {
+                            $rebootNeeded = $true
+                        }
+                    } else {
+                        throw "Install failed for feature $feature"
+                    }
                 }
-            } else {
-                throw "Install failed for feature $feature"
             }
-        }
         if ($rebootNeeded) {
             Invoke-JujuReboot -Now
         }
