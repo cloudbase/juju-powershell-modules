@@ -184,7 +184,7 @@ function Invoke-FastWebRequest {
 function Get-RandomString {
     <#
     .SYNOPSIS
-    Returns a random string of characters, suitable for passwords
+    Returns a random string of characters, with a minimum length of 6, suitable for passwords
     .PARAMETER Length
     length of the random string.
     .PARAMETER Weak
@@ -196,17 +196,33 @@ function Get-RandomString {
         [switch]$Weak=$false
     )
     PROCESS {
+        if($Length -lt 6) {
+            $Length = 6
+        }
         if(!$Weak) {
             $characters = 33..122
         }else {
             $characters = (48..57) + (65..90) + (97..122)
         }
-        $passwd = ""
+
+        $special = @(33, 35, 37, 38, 43, 45, 46)
+        $numeric = 48..57
+        $upper = 65..90
+        $lower = 97..122
+
+        $passwd = [System.Collections.Generic.List[object]](New-object "System.Collections.Generic.List[object]")
         for($i=0; $i -lt $Length; $i++){
-        $c = get-random -input $characters
-        $passwd += [char]$c
+            $c = get-random -input $characters
+            $passwd.Add([char]$c)
         }
-        return $passwd
+
+        $passwd.Add([char](get-random -input $numeric))
+        $passwd.Add([char](get-random -input $special))
+        $passwd.Add([char](get-random -input $upper))
+        $passwd.Add([char](get-random -input $lower))
+
+        $Random = New-Object Random
+        return [string]::join("",($passwd|sort {$Random.Next()}))
     }
 }
 
