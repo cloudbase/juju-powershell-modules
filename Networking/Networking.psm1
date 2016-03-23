@@ -60,4 +60,40 @@ function Invoke-DHCPRelease {
     }
 }
 
+function Confirm-IPIsPartOfLocalNetworks {
+    <#
+    .SYNOPSIS
+    Confirm that the local system is directly connected to a network that
+    can communicate with the given IP. For example, consider that we have
+    one of the addresses configured on our system is 192.168.1.10/25.
+    That means that its part of a subnet spanning from 192.168.1.0-192.168.1.127.
+    This function will check that the given IP falls in that range and
+    returns a boolean. This function is useful if you want to set another gateway
+    for your system, and are unsure whether or not you can directly reach that
+    address. 
+    .PARAMETER IP
+    IP address to check
+
+    .EXAMPLE
+    Confirm-IPIsPartOfLocalNetworks -IP 192.168.1.2
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$IP
+    )
+    PROCESS {
+        $configuredAddresses = Get-NetIPAddress -AddressFamily IPv4
+        foreach($i in $configuredAddresses) {
+            $decimalMask = ConvertTo-Mask $i.PrefixLength
+            $ipNetwork = Get-NetworkAddress $IP $decimalMask
+            $localNetwork = Get-NetworkAddress $i.IPv4Address $decimalMask
+            if ($localNetwork -eq $ipNetwork) {
+                return $true
+            }
+        }
+        return $false
+    }
+}
+
 Export-ModuleMember -Function * -Alias *
