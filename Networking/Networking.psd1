@@ -58,6 +58,7 @@ FunctionsToExport = @(
     "ConvertTo-MaskLength",
     "ConvertTo-DottedDecimalIP",
     "ConvertTo-Mask",
+    "Get-IfaceWithSameNetwork",
     "Get-NetworkAddress")
 
 # Cmdlets to export from this module

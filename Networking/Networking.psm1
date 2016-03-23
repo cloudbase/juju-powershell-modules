@@ -60,10 +60,10 @@ function Invoke-DHCPRelease {
     }
 }
 
-function Confirm-IPIsPartOfLocalNetworks {
+function Get-IfaceWithSameNetwork {
     <#
     .SYNOPSIS
-    Confirm that the local system is directly connected to a network that
+    Return the interface index of the network card directly connected to a network that
     can communicate with the given IP. For example, consider that we have
     one of the addresses configured on our system is 192.168.1.10/25.
     That means that its part of a subnet spanning from 192.168.1.0-192.168.1.127.
@@ -75,7 +75,7 @@ function Confirm-IPIsPartOfLocalNetworks {
     IP address to check
 
     .EXAMPLE
-    Confirm-IPIsPartOfLocalNetworks -IP 192.168.1.2
+    Get-IfaceWithSameNetwork -IP 192.168.1.2
     #>
     [CmdletBinding()]
     Param(
@@ -89,10 +89,9 @@ function Confirm-IPIsPartOfLocalNetworks {
             $ipNetwork = Get-NetworkAddress $IP $decimalMask
             $localNetwork = Get-NetworkAddress $i.IPv4Address $decimalMask
             if ($localNetwork -eq $ipNetwork) {
-                return $true
+                return $i.ifIndex
             }
         }
-        return $false
     }
 }
 
