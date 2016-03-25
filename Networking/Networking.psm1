@@ -95,4 +95,20 @@ function Get-IfaceWithSameNetwork {
     }
 }
 
+function Get-BroadcastAddress {
+    [CmdLetBinding()]
+    Param (
+        [Parameter(Mandatory=$true)]
+        [string]$IPAddress,
+        [Parameter(Mandatory=$true)]
+        [string]$PrefixLength="24"
+    )
+    PROCESS {
+        [UInt32]$ip = ConvertTo-DecimalIP $IPAddress
+        [UInt32]$subnet = ConvertTo-DecimalIP $SubnetMask
+        [UInt32]$broadcast = $ip -band $subnet 
+        return ConvertTo-DottedDecimalIP ($broadcast -bor -bnot $subnet)
+    }
+}
+
 Export-ModuleMember -Function * -Alias *
