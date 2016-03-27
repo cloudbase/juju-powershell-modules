@@ -154,7 +154,12 @@ function Get-UserPath {
     Returns the $env:PATH variable for the current user.
     #>
     PROCESS {
-        return [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        $userEnvKey = 'Registry::HKEY_CURRENT_USER\Environment'
+        $userPathVar = Get-ItemProperty -Path $userEnvKey -Name PATH -ErrorAction SilentlyContinue
+        if (!$userPathVar) {
+            return $null
+        }
+        return $userPathVar.Path
     }
 }
 
@@ -164,7 +169,9 @@ function Get-SystemPath {
     Returns the system wide default $env:PATH.
     #>
     PROCESS {
-        return [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+        $systemEnvRegKey = 'Registry::HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session Manager\Environment'
+        $systemPath = (Get-ItemProperty -Path $systemEnvRegKey -Name PATH).Path
+        return $systemPath
     }
 }
 
@@ -410,7 +417,10 @@ function Add-ToSystemPath {
             return
         }
         $newPath = $currentPath + ";" + $Path
-        [Environment]::SetEnvironmentVariable("PATH", $newPath, "Machine")
+        Start-ExternalCommand -Command {
+            setx /M PATH $newPath
+        } -ErrorMessage "Failed to set system path"
+        $env:PATH += ";$Path"
     }
 }
 
