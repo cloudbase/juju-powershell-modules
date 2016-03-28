@@ -331,12 +331,18 @@ Describe "Test Add-ToSystemPath" {
     Mock Get-SystemPath -ModuleName JujuUtils -Verifiable {
         return "C:\bogus_path"
     }
+    Mock Start-ExternalCommand -ModuleName JujuUtils -Verifiable {
+        return
+    }
+    Mock setx -ModuleName JujuUtils -Verifiable {
+        return
+    }
     Context "adds one path" {
         It "should add to system path" {
             Add-ToSystemPath -Path $env:TMP | Should BeNullOrEmpty
-            $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
-            ($env:TMP -in $systemPath.Split(';')) | Should Be $true
             Assert-MockCalled Get-SystemPath -Exactly 1 -ModuleName JujuUtils
+            Assert-MockCalled Start-ExternalCommand -Exactly 1 -ModuleName JujuUtils
+            ($env:TMP -in $env:PATH.Split(';')) | Should Be $true
         }
     }
     Context "adds existing path" {
@@ -344,6 +350,7 @@ Describe "Test Add-ToSystemPath" {
             $oldPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
             Add-ToSystemPath -Path "C:\bogus_path" | Should BeNullOrEmpty
             Assert-MockCalled Get-SystemPath -Exactly 1 -ModuleName JujuUtils
+            Assert-MockCalled Start-ExternalCommand -Exactly 0 -ModuleName JujuUtils
             $newPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
             ($oldPath -eq $newPath) | Should Be $true
         }
