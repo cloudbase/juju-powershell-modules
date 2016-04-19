@@ -51,7 +51,7 @@ function Initialize-Assemblies {
     }
     $assemblyFile = Join-Path $assemblyDir "DotLiquid.dll"
     try {
-        [YamlDotNet.Serialization.Serializer] | Out-Null
+        [DotLiquid.Template] | Out-Null
     } catch [System.Management.Automation.RuntimeException] {
         if(!(Test-Path $assemblyFile)) {
             Throw "Could not find DotLiquid assembly on the system"
