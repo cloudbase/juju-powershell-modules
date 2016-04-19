@@ -1,7 +1,7 @@
 Import-Module JujuHooks
 Import-Module powershell-yaml
 
-$global:register = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
+$global:registry = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
 $global:hooks = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
 
 function ConvertTo-List {
@@ -33,11 +33,16 @@ function Confirm-MethodIsInList {
         [string]$MethodName
     )
     PROCESS {
-        if(!$global:register[$ModuleName]){
+        if(!$global:registry -and !$global:hooks){
             return $false
         }
-        foreach($i in $global:register[$ModuleName]){
-            if ($i["name"] -eq $MethodName) {
+        foreach($i in $global:registry){
+            if ($i["ModuleName"] -eq $ModuleName -and $i["MethodName"] -eq $MethodName) {
+                return $true
+            }
+        }
+        foreach($i in $global:hooks){
+            if ($i["ModuleName"] -eq $ModuleName -and $i["MethodName"] -eq $MethodName) {
                 return $true
             }
         }
@@ -50,7 +55,6 @@ function Register-ReactiveMethod {
     Param(
         [Parameter(Mandatory=$true)]
         [String]$MethodName,
-        [array]$ArgumentList=@(),
         [array]$When,
         [array]$WhenNot,
         [array]$Hooks,
@@ -76,18 +80,17 @@ function Register-ReactiveMethod {
         }
 
         $sig = [System.Collections.Generic.Dictionary[string,object]](New-Object "System.Collections.Generic.Dictionary[string,object]")
-        $sig["name"] = $MethodName
+        $sig["MethodName"] = $MethodName
         $sig["ModulePath"] = $modulePath
         $sig["ModuleName"] = $name
-        $sig["when"] = $When
+        $sig["When"] = $When
         $sig["WhenNot"] = $WhenNot
         $sig["OnlyOnce"] = $OnlyOnce
-        $sig["hooks"] = $Hooks
-        $sig["args"] = $ArgumentList
+        $sig["Hooks"] = $Hooks
         if($Hooks) {
             $global:hooks.Add($sig)
         } else {
-            $global:register.Add($sig)
+            $global:registry.Add($sig)
         }
     }
 }
@@ -100,9 +103,9 @@ function Get-RegisteredMethods {
     )
     PROCESS {
         if ($ModuleName) {
-            return $global:register[$ModuleName]
+            return $global:registry[$ModuleName]
         }
-        return $global:register
+        return $global:registry
     }
 }
 
@@ -172,7 +175,7 @@ function Set-ReactiveState {
         [Parameter(Mandatory=$false)]
         [string]$Namespace="reactive.states",
         [Parameter(Mandatory=$false)]
-        [object]$Data
+        [object]$Data=$true
     )
     PROCESS {
         $keyName = ("$Namespace.{0}" -f $State)
@@ -256,6 +259,20 @@ function Set-ReactiveStateWatch {
     }
 }
 
+function Set-ReactiveStateWatchIncrement {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$false)]
+        [string]$Namespace="reactive"
+    )
+    PROCESS {
+        $keyName = "$Namespace.state_watch"
+        $val = Get-ReactiveStateWatch -Namespace $Namespace
+        $val["iterations"] += 1
+        Set-ReactiveStateWatch -Namespace $Namespace -State $val
+    }
+}
+
 function Sync-ReactiveStateWatch {
     [CmdletBinding()]
     Param(
@@ -292,6 +309,20 @@ function Set-ReactiveMethodInvoked {
         Set-CharmState -Key $keyName -Value $str
     }
 }
+
+function Get-ReactiveMethodInvoked {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$MethodName
+    )
+    PROCESS {
+        $keyName = ('reactive.invoked.{0}' -f $MethodName)
+        $val = Get-CharmState -Key $keyName
+        $obj = ConvertFrom-Yaml $val
+        return $obj
+    }
+} 
 
 function Confirm-CurrentHook {
     [CmdletBinding()]
@@ -351,7 +382,7 @@ function Confirm-When {
     PROCESS {
         $currentStates = Get-ReactiveStateWatch
         foreach($i in $States) {
-            if(!($i in $currentStates)) {
+            if(!($i in $currentStates["changes"])) {
                 return $false
             }
         }
@@ -359,22 +390,70 @@ function Confirm-When {
     }
 }
 
-
 # @{
 #     "module-name"=@{
 #         "Path"="";
-#         "registered-methods"=@(
+#         "registryed-methods"=@(
 #             @{
 #                 "name"="test";
 #                 "WhenNone"=$WhenNone;
 #                 "when"="test";
 #                 "hooks"="config-changed","install";
 #                 "OnlyOnce"=$true;
-#                 "args"=$ArgumentList;
 #             }
 #         )
 #     )
 # }
+
+# $sig["Name"] = $MethodName
+# $sig["ModulePath"] = $modulePath
+# $sig["ModuleName"] = $name
+# $sig["When"] = $When
+# $sig["WhenNot"] = $WhenNot
+# $sig["OnlyOnce"] = $OnlyOnce
+# $sig["Hooks"] = $Hooks
+
+function Confirm-MustExecuteReactiveMethod {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [object]$MethodData
+    )
+    PROCESS {
+        $methodName = Join-Path $MethodData["ModuleName"] $MethodData["MethodName"]
+        if($MethodData["OnlyOnce"] -and (Get-ReactiveMethodInvoked $methodName)){
+            return $false
+        }
+        if(!(Confirm-When $MethodData["When"])) {
+            return $false
+        }
+        if(!(Confirm-WhenNot $MethodData["WhenNot"])){
+            return $false
+        }
+        if(!$MethodData["ModuleName"]){
+            return $MethodData["MethodName"]
+        }
+        return (Join-Path $MethodData["ModuleName"] $MethodData["MethodName"])
+    }
+}
+
+function Invoke-ReactiveMethods {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [array]$Methods
+    )
+    PROCESS {
+        while($Methods) {
+            $data = $Methods[0]
+            $Methods.RemoveAt(0)
+            $methodName = Confirm-MustExecuteReactiveMethod $data
+            if($methodName) {
+                & $methodName
+            }
+        }
+    }
+}
 
 function Get-HookMethods {
     PROCESS {
@@ -387,17 +466,18 @@ function Get-HookMethods {
         }
         return $methods
     }    
-} 
+}
 
 function Invoke-Reactive {
     BEGIN {
         Reset-ReactiveStateWatch
     }
     PROCESS {
-        Set-CharmState -Key 'reactive.dispatch.phase' -Value "hooks"
         $hookMethods = Get-HookMethods
-        #TODO: implement the rest
-        
+        Invoke-ReactiveMethods -Methods $hookMethods
+        # Make a copy of the global registry
+        $otherMethods = [System.Collections.Generic.List[Object]]$global:registry.Clone()
+        Invoke-ReactiveMethods -Methods $otherMethods
     }
     END {
         Reset-ReactiveStateWatch
