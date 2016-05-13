@@ -126,8 +126,6 @@ function Invoke-FastWebRequest {
             $assembly = [System.Reflection.Assembly]::LoadWithPartialName("System.Net.Http")
         }
 
-        [Environment]::CurrentDirectory = (pwd).Path
-
         if(!$OutFile) {
             $OutFile = $Uri.PathAndQuery.Substring($Uri.PathAndQuery.LastIndexOf("/") + 1)
             if(!$OutFile) {
