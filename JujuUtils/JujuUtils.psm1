@@ -13,6 +13,7 @@
 #    under the License.
 
 Import-Module JujuLogging
+Import-Module Templating
 
 function Convert-FileToBase64{
     <#
@@ -546,6 +547,27 @@ function Get-PSStringParamsFromHashtable {
         }
 
         return $args -join " "
+    }
+}
+
+function Start-RenderTemplate {
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [System.Collections.Generic.Dictionary[string, object]]$Context,
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [string]$TemplateName,
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [string]$OutFile
+    )
+    PROCESS {
+        $templatesDir = Join-Path $env:CHARM_DIR "templates"
+        if($env:CHARM_TEMPLATE_DIR) {
+            $templatesDir = $env:CHARM_TEMPLATE_DIR
+        }
+        $template = Join-Path $templatesDir $TemplateName
+        $cfg = Invoke-RenderTemplateFromFile -Context $Context -Template $template
+        Set-Content $OutFile $cfg
     }
 }
 
