@@ -168,7 +168,7 @@ function Get-BroadcastAddress {
 function Get-NetIpFromNetwork {
     <#
     .SYNOPSIS
-    Find a network interface that has an IP address that belongs to a particular network.
+    Find a network interface that has an IPv4 address that belongs to a particular network.
     #>
     [CmdletBinding()]
     Param(
