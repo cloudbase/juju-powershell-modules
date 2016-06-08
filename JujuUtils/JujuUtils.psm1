@@ -557,7 +557,7 @@ function Start-RenderTemplate {
         [System.Collections.Generic.Dictionary[string, object]]$Context,
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [string]$TemplateName,
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [Parameter(Mandatory=$false, ValueFromPipeline=$true)]
         [string]$OutFile
     )
     PROCESS {
@@ -567,7 +567,11 @@ function Start-RenderTemplate {
         }
         $template = Join-Path $templatesDir $TemplateName
         $cfg = Invoke-RenderTemplateFromFile -Context $Context -Template $template
-        Set-Content $OutFile $cfg
+        if($OutFile) {
+            Set-Content $OutFile $cfg
+        } else {
+            return $cfg
+        }
     }
 }
 
