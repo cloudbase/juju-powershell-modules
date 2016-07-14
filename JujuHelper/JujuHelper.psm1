@@ -141,15 +141,10 @@ function Invoke-FastWebRequest {
         }
 
         if (!$SkipIntegrityCheck -and $fragment -and (Test-Path $OutFile)) {
-            if($algorithm -in @("SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160")) {
-                try {
-                    Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash
-                    return $true
-                } catch {
-                    Remove-Items $OutFile
-                }
-            } else {
-                Throw "Hash algorithm $algorithm not recognized."
+            try {
+                return (Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash)
+            } catch {
+                Remove-Items $OutFile
             }
         }
 
@@ -181,11 +176,7 @@ function Invoke-FastWebRequest {
             $outStream.Close()
         }
         if(!$SkipIntegrityCheck -and $fragment) {
-            if($algorithm -in @("SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160")){
-                Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash
-            } else {
-                Throw "Hash algorithm $algorithm not recognized."
-            }
+            Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash
         }
     }
 }
