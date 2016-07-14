@@ -149,12 +149,6 @@ function Invoke-FastWebRequest {
         }
 
         $client = new-object System.Net.Http.HttpClient
-        $requestMessage = new-object System.Net.Http.HttpRequestMessage "HEAD", $Uri
-        $headRequest = $client.SendAsync($requestMessage)
-        $response = $headRequest.Result
-        $status = $response.EnsureSuccessStatusCode()
-        $contentLength = $response.Content.Headers.ContentLength
-
         $task = $client.GetStreamAsync($Uri)
         $response = $task.Result
         $outStream = New-Object IO.FileStream $OutFile, Create, Write, None
@@ -165,11 +159,6 @@ function Invoke-FastWebRequest {
             while (($read = $response.Read($buffer, 0, $buffer.Length)) -gt 0) {
                 $totRead += $read
                 $outStream.Write($buffer, 0, $read);
-
-                if($contentLength){
-                    $percComplete = $totRead * 100 / $contentLength
-                    Write-Progress -Activity "Downloading: $Uri" -PercentComplete $percComplete
-                }
             }
         }
         finally {
