@@ -133,13 +133,22 @@ function Invoke-FastWebRequest {
             }
         }
 
-        $client = new-object System.Net.Http.HttpClient
-        $requestMessage = new-object System.Net.Http.HttpRequestMessage "HEAD", $Uri
-        $headRequest = $client.SendAsync($requestMessage)
-        $response = $headRequest.Result
-        $status = $response.EnsureSuccessStatusCode()
-        $contentLength = $response.Content.Headers.ContentLength
+        $fragment = $Uri.Fragment.Trim('#')
+        if ($fragment) {
+            $details = $fragment.Split("=")
+            $algorithm = $details[0]
+            $hash = $details[1]
+        }
 
+        if (!$SkipIntegrityCheck -and $fragment -and (Test-Path $OutFile)) {
+            try {
+                return (Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash)
+            } catch {
+                Remove-Items $OutFile
+            }
+        }
+
+        $client = new-object System.Net.Http.HttpClient
         $task = $client.GetStreamAsync($Uri)
         $response = $task.Result
         $outStream = New-Object IO.FileStream $OutFile, Create, Write, None
@@ -150,29 +159,13 @@ function Invoke-FastWebRequest {
             while (($read = $response.Read($buffer, 0, $buffer.Length)) -gt 0) {
                 $totRead += $read
                 $outStream.Write($buffer, 0, $read);
-
-                if($contentLength){
-                    $percComplete = $totRead * 100 / $contentLength
-                    Write-Progress -Activity "Downloading: $Uri" -PercentComplete $percComplete
-                }
             }
         }
         finally {
             $outStream.Close()
         }
-        if(!$SkipIntegrityCheck) {
-            $fragment = $Uri.Fragment.Trim('#')
-            if (!$fragment){
-                return
-            }
-            $details = $fragment.Split("=")
-            $algorithm = $details[0]
-            $hash = $details[1]
-            if($algorithm -in @("SHA1", "SHA256", "SHA384", "SHA512", "MACTripleDES", "MD5", "RIPEMD160")){
-                Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash
-            } else {
-                Throw "Hash algorithm $algorithm not recognized."
-            }
+        if(!$SkipIntegrityCheck -and $fragment) {
+            Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash
         }
     }
 }
