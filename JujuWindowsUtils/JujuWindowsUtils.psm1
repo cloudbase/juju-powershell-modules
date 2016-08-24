@@ -358,9 +358,18 @@ function Install-WindowsFeatures {
     )
     PROCESS {
         $rebootNeeded = $false
-        $enableFeature = Get-Command Enable-WindowsOptionalFeature -ErrorAction SilentlyContinue
+        $installFeature = Get-Command Install-WindowsFeature -ErrorAction SilentlyContinue
         foreach ($feature in $Features) {
-            if ($enableFeature) {
+            if ($installFeature) {
+                $state = Install-WindowsFeature -Name $feature -IncludeManagementTools -ErrorAction Stop
+                if ($state.Success -eq $true) {
+                    if ($state.RestartNeeded -eq 'Yes') {
+                        $rebootNeeded = $true
+                    }
+                } else {
+                    throw "Install failed for feature $feature"
+                }
+            } else {
                 $featureStat = Get-WindowsOptionalFeature -Online -FeatureName $feature
                 if ($featureStat.State -ne "Enabled") {
                     $featureInstall = Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart
@@ -369,15 +378,6 @@ function Install-WindowsFeatures {
                     }
                 } elseif ($featureStat.RestartNeeded) {
                     $rebootNeeded = $true
-                }
-            } else {
-                $state = Install-WindowsFeature -Name $feature -IncludeManagementTools -ErrorAction Stop
-                if ($state.Success -eq $true) {
-                    if ($state.RestartNeeded -eq 'Yes') {
-                        $rebootNeeded = $true
-                    }
-                } else {
-                    throw "Install failed for feature $feature"
                 }
             }
         }
