@@ -13,7 +13,7 @@ You will need pester on your system. It should already be installed on your syst
 Install-Package Pester
 ```
 
-Running the actual tests:
+Running the actual tests (they must be run with administrative privileges):
 
 ```powershell
 powershell.exe -NonInteractive {Invoke-Pester}
