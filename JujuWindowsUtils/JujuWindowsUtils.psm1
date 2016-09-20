@@ -576,7 +576,7 @@ function Confirm-IsMemberOfGroup {
     PROCESS {
         $inDomain = (Get-ManagementObject -Class Win32_ComputerSystem).PartOfDomain
         if($inDomain){
-            $domainName = (Get-ManagementObject -Class Win32_NTDomain).DomainName
+            $domainName = (Get-ManagementObject -Class Win32_ComputerSystem).Domain
             $myDomain = [Environment]::UserDomainName
             if($domainName -eq $myDomain) {
                 return (Get-UserGroupMembership -Username $Username -GroupSID $GroupSID)
