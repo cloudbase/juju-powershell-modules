@@ -331,7 +331,7 @@ function Expand-ZipArchive {
         try {
             # This will work on PowerShell >= 5.0 (default on Windows 10/Windows Server 2016).
             Expand-Archive -Path $normZipPath -DestinationPath $Destination
-        } catch [System.Management.Automation.CommandNotFoundException] {
+        } catch [System.Management.Automation.ItemNotFoundException], [System.Management.Automation.CommandNotFoundException] {
             try {
                 # Try without loading system.io.compression.filesystem. This will work by default on Nano
                 [System.IO.Compression.ZipFile]::ExtractToDirectory($normZipPath, $Destination)
