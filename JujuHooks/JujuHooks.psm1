@@ -1075,7 +1075,7 @@ function Set-CharmState {
     .PARAMETER Key
     A key to identify the information by
     .PARAMETER Value
-    The value we want to store. This must be a string.
+    The value we want to store.
     #>
     [CmdletBinding()]
     param(
