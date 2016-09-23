@@ -144,7 +144,7 @@ function Invoke-FastWebRequest {
             try {
                 return (Test-FileIntegrity -File $OutFile -Algorithm $algorithm -ExpectedHash $hash)
             } catch {
-                Remove-Items $OutFile
+                Remove-Item $OutFile
             }
         }
 
