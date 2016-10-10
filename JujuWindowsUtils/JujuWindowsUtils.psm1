@@ -273,6 +273,8 @@ function Install-Msi {
     Full path to the MSI installer
     .PARAMETER LogFilePath
     The path to the install log file.
+    .PARAMETER ExtraArgs
+    Extra arguments passed to the installer.
     #>
     [CmdletBinding()]
     param(
@@ -280,7 +282,9 @@ function Install-Msi {
         [Alias("MsiFilePath")]
         [string]$Installer,
         [Parameter(Mandatory=$false)]
-        [string]$LogFilePath
+        [string]$LogFilePath,
+        [Parameter(Mandatory=$false)]
+        [string[]]$ExtraArgs
     )
     PROCESS {
         $args = @(
@@ -295,6 +299,10 @@ function Install-Msi {
                 New-Item -ItemType Directory $parent
             }
             $args += @("/l*v", $LogFilePath)
+        }
+
+        if($ExtraArgs) {
+            $args += $ExtraArgs
         }
 
         if (!(Test-Path $Installer)){
