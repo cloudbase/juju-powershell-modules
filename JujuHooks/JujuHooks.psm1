@@ -142,11 +142,15 @@ function Get-JujuCharmConfig {
         [string]$Scope=$null
     )
     PROCESS {
-        $cmd = @("config-get.exe", "--format=yaml")
-        if ($Scope){
-            $cmd += $Scope
+        if(!$Global:CHARM_CFG) {
+            $cmd = @("config-get.exe", "--format=yaml")
+            $cfg = (Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml
+            Set-Variable -Name "CHARM_CFG" -Value $cfg -Scope Global -Option ReadOnly
         }
-        return ((Invoke-JujuCommand -Command $cmd) -Join "`r`n" | ConvertFrom-Yaml)
+        if ($Scope){
+            return $Global:CHARM_CFG[$Scope]
+        }
+        return $Global:CHARM_CFG
     }
 }
 
