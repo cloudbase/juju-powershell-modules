@@ -932,8 +932,7 @@ function Set-JujuStatus {
     <#
     .SYNOPSIS
     Set the status of a running unit, optionally allowing the charm author to also set
-    a message along with the status. It is recommended that the charm set its status and
-    a message when the charm transitions from one state to another.
+    a message along with the status.
     .PARAMETER Status
     One of the following statuses: maintenance, blocked, waiting, active
     .PARAMETER Message
@@ -969,9 +968,7 @@ function Set-JujuStatus {
             $js = ConvertTo-Yaml $StatusData
             $cmd += $js
         }
-        if ((Get-JujuStatus) -ne $Status) {
-            Invoke-JujuCommand -Command $cmd | Out-Null
-        }
+        Invoke-JujuCommand -Command $cmd | Out-Null
     }
 }
 
