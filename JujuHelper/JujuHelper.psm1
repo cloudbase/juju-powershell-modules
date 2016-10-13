@@ -151,6 +151,13 @@ function Invoke-FastWebRequest {
         $client = new-object System.Net.Http.HttpClient
         $task = $client.GetStreamAsync($Uri)
         $response = $task.Result
+        if($task.IsFaulted) {
+            $msg = "Request for URL '{0}' is faulted.`nTask status: {1}.`n" -f @($Uri, $task.Status)
+            if($task.Exception) {
+                $msg += "Exception details: {0}" -f @($task.Exception)
+            }
+            Throw $msg
+        }
         $outStream = New-Object IO.FileStream $OutFile, Create, Write, None
 
         try {

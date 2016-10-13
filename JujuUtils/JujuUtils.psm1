@@ -312,6 +312,8 @@ function Start-ExecuteWithRetry {
     The number of retries before we throw an exception.
     .PARAMETER RetryInterval
     Number of seconds to sleep between retries.
+    .PARAMETER RetryMessage
+    Warning message logged on every failed retry.
     .PARAMETER ArgumentList
     Arguments to pass to your wrapped commandlet/command.
 
@@ -331,6 +333,7 @@ function Start-ExecuteWithRetry {
         [ScriptBlock]$ScriptBlock,
         [int]$MaxRetryCount=10,
         [int]$RetryInterval=3,
+        [string]$RetryMessage,
         [array]$ArgumentList=@()
     )
     PROCESS {
@@ -350,7 +353,9 @@ function Start-ExecuteWithRetry {
                     $ErrorActionPreference = $currentErrorActionPreference
                     throw
                 } else {
-                    if($_) {
+                    if($RetryMessage) {
+                        Write-JujuWarning $RetryMessage
+                    } elseif($_) {
                         Write-HookTracebackToLog $_ -LogLevel WARNING
                     }
                     Start-Sleep $RetryInterval
