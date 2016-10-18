@@ -75,13 +75,16 @@ Describe "Test Install-WindowsFeatures" {
     # This is missing on a desktop Windows workstation
     function Install-WindowsFeature { }
 
-    Context "Windows features are installed on Nano Server" {
+    Context "Windows features are enabled on Nano Server" {
         Mock Get-IsNanoServer -ModuleName JujuWindowsUtils { return $true }
         Mock Install-WindowsFeature -ModuleName JujuWindowsUtils { }
+        Mock Enable-OptionalWindowsFeatures -ModuleName JujuWindowsUtils { }
 
-        It "should fail to install Windows features" {
+        It "should enable Windows features on Nano Server" {
             $fakeFeatures = @('Feature_1', 'Feature_2')
-            { Install-WindowsFeatures -Features $fakeFeatures } | Should Throw
+            Install-WindowsFeatures -Features $fakeFeatures
+            Assert-MockCalled Get-IsNanoServer -Exactly 1 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Enable-OptionalWindowsFeatures -Exactly 1 -ModuleName JujuWindowsUtils
             Assert-MockCalled Install-WindowsFeature -Exactly 0 -ModuleName JujuWindowsUtils
             Assert-MockCalled Invoke-JujuReboot -Exactly 0 -ModuleName JujuWindowsUtils
         }
@@ -89,6 +92,7 @@ Describe "Test Install-WindowsFeatures" {
 
     Context "Windows features are installed" {
         Mock Get-IsNanoServer -ModuleName JujuWindowsUtils { return $false }
+        Mock Enable-OptionalWindowsFeatures -ModuleName JujuWindowsUtils { }
         Mock Install-WindowsFeature -ModuleName JujuWindowsUtils {
             return @{
                 'Success' = $true
@@ -98,6 +102,8 @@ Describe "Test Install-WindowsFeatures" {
         It "should install features and do a reboot" {
             $fakeFeatures = @('Feature_1', 'Feature_2')
             Install-WindowsFeatures -Features $fakeFeatures | Should BeNullOrEmpty
+            Assert-MockCalled Get-IsNanoServer -Exactly 1 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Enable-OptionalWindowsFeatures -Exactly 0 -ModuleName JujuWindowsUtils
             Assert-MockCalled Install-WindowsFeature -Exactly 2 -ModuleName JujuWindowsUtils
             Assert-MockCalled Invoke-JujuReboot -Exactly 1 -ModuleName JujuWindowsUtils
         }
@@ -105,6 +111,7 @@ Describe "Test Install-WindowsFeatures" {
 
     Context "Windows feature failed to install" {
         Mock Get-IsNanoServer -ModuleName JujuWindowsUtils { return $false }
+        Mock Enable-OptionalWindowsFeatures -ModuleName JujuWindowsUtils { }
         Mock Install-WindowsFeature -ModuleName JujuWindowsUtils {
             return @{
                 'Success' = $false
@@ -115,6 +122,8 @@ Describe "Test Install-WindowsFeatures" {
             $fakeFeatures = @('WindowsFeature_1')
             { Install-WindowsFeatures -Features $fakeFeatures } | Should Throw
             Assert-MockCalled Install-WindowsFeature -Exactly 1 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Get-IsNanoServer -Exactly 1 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Enable-OptionalWindowsFeatures -Exactly 0 -ModuleName JujuWindowsUtils
             Assert-MockCalled Invoke-JujuReboot -Exactly 0 -ModuleName JujuWindowsUtils
         }
     }

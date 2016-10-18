@@ -355,9 +355,9 @@ function Expand-ZipArchive {
 function Install-WindowsFeatures {
     <#
     .SYNOPSIS
-    This function installs windows features. This is not supported on Nano Server.
+    This function installs windows features. For Nano, you already need to have the features installed, and this function merely enables them.
     .PARAMETER Features
-    Array of Windows feature names that will be installed.
+    Array of Windows feature names that will be installed (or enabled on Nano).
     #>
     [CmdletBinding()]
     Param(
@@ -366,7 +366,8 @@ function Install-WindowsFeatures {
     )
     PROCESS {
         if(Get-IsNanoServer) {
-            Throw "Install-WindowsFeature is not supported on Nano Server"
+            Enable-OptionalWindowsFeatures -Features $Features
+            return
         }
         $rebootNeeded = $false
         foreach ($feature in $Features) {
