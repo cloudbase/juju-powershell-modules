@@ -1,4 +1,4 @@
-[![Build status](https://ci.appveyor.com/api/projects/status/y0x1gm2n7y6ti2a9/branch/experimental?svg=true)](https://ci.appveyor.com/project/gabriel-samfira/juju-powershell-modules/branch/experimental)
+[![Build status](https://ci.appveyor.com/api/projects/status/y0x1gm2n7y6ti2a9/branch/master?svg=true)](https://ci.appveyor.com/project/gabriel-samfira/juju-powershell-modules/branch/master)
 
 #Juju PowerShell Modules
 
