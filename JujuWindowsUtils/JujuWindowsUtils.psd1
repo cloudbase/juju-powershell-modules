@@ -63,6 +63,7 @@ FunctionsToExport = @(
     "Install-Msi",
     "Expand-ZipArchive",
     "Install-WindowsFeatures",
+    "Enable-OptionalWindowsFeatures",
     "Get-AccountObjectByName",
     "Get-GroupObjectByName",
     "Get-AccountObjectBySID",

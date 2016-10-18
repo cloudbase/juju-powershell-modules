@@ -355,9 +355,41 @@ function Expand-ZipArchive {
 function Install-WindowsFeatures {
     <#
     .SYNOPSIS
-    This function installs windows features. For Nano, you already need to have the features installed, and this function merely enables them.
+    This function installs windows features. This is not supported on Nano Server.
     .PARAMETER Features
-    Array of Windows feature names that will be installed (or enabled on Nano).
+    Array of Windows feature names that will be installed.
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [array]$Features
+    )
+    PROCESS {
+        if(Get-IsNanoServer) {
+            Throw "Install-WindowsFeature is not supported on Nano Server"
+        }
+        $rebootNeeded = $false
+        foreach ($feature in $Features) {
+            $state = Install-WindowsFeature -Name $feature -IncludeManagementTools -ErrorAction Stop
+            if ($state.Success -ne $true) {
+                Throw "Install failed for feature $feature"
+            }
+            if ($state.RestartNeeded -eq 'Yes') {
+                $rebootNeeded = $true
+            }
+        }
+        if ($rebootNeeded) {
+            Invoke-JujuReboot -Now
+        }
+    }
+}
+
+function Enable-OptionalWindowsFeatures {
+    <#
+    .SYNOPSIS
+    This function enables optional windows features.
+    .PARAMETER Features
+    Array of optional Windows feature names that will be enabled.
     #>
     [CmdletBinding()]
     Param(
@@ -366,27 +398,15 @@ function Install-WindowsFeatures {
     )
     PROCESS {
         $rebootNeeded = $false
-        $installFeature = Get-Command Install-WindowsFeature -ErrorAction SilentlyContinue
         foreach ($feature in $Features) {
-            if ($installFeature) {
-                $state = Install-WindowsFeature -Name $feature -IncludeManagementTools -ErrorAction Stop
-                if ($state.Success -eq $true) {
-                    if ($state.RestartNeeded -eq 'Yes') {
-                        $rebootNeeded = $true
-                    }
-                } else {
-                    throw "Install failed for feature $feature"
-                }
-            } else {
-                $featureStat = Get-WindowsOptionalFeature -Online -FeatureName $feature
-                if ($featureStat.State -ne "Enabled") {
-                    $featureInstall = Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart
-                    if ($featureInstall.RestartNeeded) {
-                        $rebootNeeded = $true
-                    }
-                } elseif ($featureStat.RestartNeeded) {
+            $state = Get-WindowsOptionalFeature -Online -FeatureName $feature
+            if ($state.State -ne "Enabled") {
+                $state = Enable-WindowsOptionalFeature -Online -FeatureName $feature -All -NoRestart
+                if ($state.RestartNeeded) {
                     $rebootNeeded = $true
                 }
+            } elseif ($state.RestartNeeded) {
+                $rebootNeeded = $true
             }
         }
         if ($rebootNeeded) {

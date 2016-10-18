@@ -75,47 +75,88 @@ Describe "Test Install-WindowsFeatures" {
     # This is missing on a desktop Windows workstation
     function Install-WindowsFeature { }
 
-    Context "Windows features are enabled for Nano" {
-        Mock Get-WindowsOptionalFeature -ModuleName JujuWindowsUtils {
-            return @{
-                'State' = 'Enabled';
-                'RestartNeeded' = $true
-            }
-        }
-        It "should install features and do a reboot" {
-            $fakeFeatures = @('NanoFeature_1', 'NanoFeature_2')
-            Install-WindowsFeatures -Features $fakeFeatures | Should BeNullOrEmpty
-            Assert-MockCalled Get-WindowsOptionalFeature -Exactly 2 -ModuleName JujuWindowsUtils
-            Assert-MockCalled Invoke-JujuReboot -Exactly 1 -ModuleName JujuWindowsUtils
-        }
-    }
+    Context "Windows features are installed on Nano Server" {
+        Mock Get-IsNanoServer -ModuleName JujuWindowsUtils { return $true }
+        Mock Install-WindowsFeature -ModuleName JujuWindowsUtils { }
 
-    Context "Windows features are installed for regular Windows Server" {
-        Mock Install-WindowsFeature -ModuleName JujuWindowsUtils {
-            return @{
-                'Success' = $true;
-                'RestartNeeded' = $false
-            }
-        }
-        It "should install features and without a reboot" {
-            $fakeFeatures = @('WindowsFeature_1', 'WindowsFeature_2')
-            Install-WindowsFeatures -Features $fakeFeatures | Should BeNullOrEmpty
-            Assert-MockCalled Install-WindowsFeature -Exactly 2 -ModuleName JujuWindowsUtils
+        It "should fail to install Windows features" {
+            $fakeFeatures = @('Feature_1', 'Feature_2')
+            { Install-WindowsFeatures -Features $fakeFeatures } | Should Throw
+            Assert-MockCalled Install-WindowsFeature -Exactly 0 -ModuleName JujuWindowsUtils
             Assert-MockCalled Invoke-JujuReboot -Exactly 0 -ModuleName JujuWindowsUtils
         }
     }
 
-    Context "Windows feature failed to install on regular Windows Server" {
+    Context "Windows features are installed" {
+        Mock Get-IsNanoServer -ModuleName JujuWindowsUtils { return $false }
         Mock Install-WindowsFeature -ModuleName JujuWindowsUtils {
             return @{
-                'Success' = $false;
+                'Success' = $true
                 'RestartNeeded' = $true
             }
         }
-        It "should install features and without a reboot" {
+        It "should install features and do a reboot" {
+            $fakeFeatures = @('Feature_1', 'Feature_2')
+            Install-WindowsFeatures -Features $fakeFeatures | Should BeNullOrEmpty
+            Assert-MockCalled Install-WindowsFeature -Exactly 2 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Invoke-JujuReboot -Exactly 1 -ModuleName JujuWindowsUtils
+        }
+    }
+
+    Context "Windows feature failed to install" {
+        Mock Get-IsNanoServer -ModuleName JujuWindowsUtils { return $false }
+        Mock Install-WindowsFeature -ModuleName JujuWindowsUtils {
+            return @{
+                'Success' = $false
+                'RestartNeeded' = $true
+            }
+        }
+        It "should fail to install features" {
             $fakeFeatures = @('WindowsFeature_1')
             { Install-WindowsFeatures -Features $fakeFeatures } | Should Throw
             Assert-MockCalled Install-WindowsFeature -Exactly 1 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Invoke-JujuReboot -Exactly 0 -ModuleName JujuWindowsUtils
+        }
+    }
+}
+
+Describe "Test Enable-OptionalWindowsFeatures" {
+    Mock Invoke-JujuReboot -ModuleName JujuWindowsUtils { }
+
+    Context "Windows features are enabled" {
+        Mock Get-WindowsOptionalFeature -ModuleName JujuWindowsUtils {
+            return @{
+                'State' = 'Disabled'
+            }
+        }
+        Mock Enable-WindowsOptionalFeature -ModuleName JujuWindowsUtils {
+            return @{
+                'RestartNeeded' = $true
+            }
+        }
+
+        It "should enable features and do a reboot" {
+            $fakeFeatures = @('Feature_1', 'Feature_2')
+            Enable-OptionalWindowsFeatures -Features $fakeFeatures | Should BeNullOrEmpty
+            Assert-MockCalled Get-WindowsOptionalFeature -Exactly 2 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Enable-WindowsOptionalFeature -Exactly 2 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Invoke-JujuReboot -Exactly 1 -ModuleName JujuWindowsUtils
+        }
+    }
+
+    Context "Windows feature failed to enable" {
+        Mock Get-WindowsOptionalFeature -ModuleName JujuWindowsUtils {
+            return @{
+                'State' = 'Disabled'
+            }
+        }
+        Mock Enable-WindowsOptionalFeature -ModuleName JujuWindowsUtils { Throw }
+
+        It "should fail to enable features" {
+            $fakeFeatures = @('WindowsFeature_1')
+            { Enable-OptionalWindowsFeatures -Features $fakeFeatures } | Should Throw
+            Assert-MockCalled Get-WindowsOptionalFeature -Exactly 1 -ModuleName JujuWindowsUtils
+            Assert-MockCalled Enable-WindowsOptionalFeature -Exactly 1 -ModuleName JujuWindowsUtils
             Assert-MockCalled Invoke-JujuReboot -Exactly 0 -ModuleName JujuWindowsUtils
         }
     }
