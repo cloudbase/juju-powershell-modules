@@ -369,7 +369,7 @@ Describe "Test Get-JujuRelationForUnit" {
             if ((Compare-Object $Command $expect)) {
                 Throw "Invalid parameters"
             }
-            return '{"test": "test", "hello": "world", "test-list": "hello world"}'
+            return '{"test": "test", "hello": "world", "test2-list": "hello world"}'
         }
 
         It "Should pass unit and relation id. Return hashtable" {
@@ -377,7 +377,7 @@ Describe "Test Get-JujuRelationForUnit" {
             $r.GetType() | Should Be "hashtable"
             $r["test"] | Should Be "test"
             $r["hello"] | Should Be "world"
-            $r["test-list"] | Should Be @("hello", "world")
+            $r["test2"] | Should Be @("hello", "world")
         }
     }
     

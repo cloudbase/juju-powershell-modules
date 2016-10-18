@@ -72,6 +72,8 @@ Describe "Test Expand-ZipArchive" {}
 
 Describe "Test Install-WindowsFeatures" {
     Mock Invoke-JujuReboot -ModuleName JujuWindowsUtils { }
+    # This is missing on a desktop Windows workstation
+    function Install-WindowsFeature { }
 
     Context "Windows features are enabled for Nano" {
         Mock Get-WindowsOptionalFeature -ModuleName JujuWindowsUtils {
@@ -89,9 +91,6 @@ Describe "Test Install-WindowsFeatures" {
     }
 
     Context "Windows features are installed for regular Windows Server" {
-        # This is missing on a desktop Windows workstation
-        function Install-WindowsFeature { }
-
         Mock Install-WindowsFeature -ModuleName JujuWindowsUtils {
             return @{
                 'Success' = $true;
@@ -107,9 +106,6 @@ Describe "Test Install-WindowsFeatures" {
     }
 
     Context "Windows feature failed to install on regular Windows Server" {
-        # This is missing on a desktop Windows workstation
-        function Install-WindowsFeature { }
-
         Mock Install-WindowsFeature -ModuleName JujuWindowsUtils {
             return @{
                 'Success' = $false;

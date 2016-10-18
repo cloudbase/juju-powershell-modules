@@ -414,7 +414,6 @@ Describe "Test Start-RenderTemplate" {
     }
 
     Mock Invoke-RenderTemplateFromFile -ModuleName JujuUtils {}
-    Mock Set-Content -ModuleName JujuUtils {}
 
     $fakeContext = [System.Collections.Generic.Dictionary[string, object]](New-Object "System.Collections.Generic.Dictionary[string, object]")
     $fakeTemplateName = "template.conf"
@@ -426,7 +425,6 @@ Describe "Test Start-RenderTemplate" {
             Start-RenderTemplate $fakeContext $fakeTemplateName $fakeOutFile
             Assert-MockCalled Invoke-RenderTemplateFromFile -ModuleName JujuUtils -Exactly -Times 1 `
                 -ParameterFilter { $Template -eq "${env:CHARM_DIR}\templates\$fakeTemplateName" }
-            Assert-MockCalled Set-Content -ModuleName JujuUtils -Exactly -Times 1
         }
     }
     Context "Custom templates location is used" {
@@ -436,7 +434,6 @@ Describe "Test Start-RenderTemplate" {
             Start-RenderTemplate $fakeContext $fakeTemplateName $fakeOutFile
             Assert-MockCalled Invoke-RenderTemplateFromFile -ModuleName JujuUtils -Exactly -Times 1 `
                 -ParameterFilter { $Template -eq "${env:CHARM_TEMPLATE_DIR}\$fakeTemplateName" }
-            Assert-MockCalled Set-Content -ModuleName JujuUtils -Exactly -Times 1
         }
     }
 }

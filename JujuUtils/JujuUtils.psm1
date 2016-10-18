@@ -573,7 +573,7 @@ function Start-RenderTemplate {
         $template = Join-Path $templatesDir $TemplateName
         $cfg = Invoke-RenderTemplateFromFile -Context $Context -Template $template
         if($OutFile) {
-            Set-Content $OutFile $cfg
+            [System.IO.File]::WriteAllText($OutFile, $cfg)
         } else {
             return $cfg
         }
