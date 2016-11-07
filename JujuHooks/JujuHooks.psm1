@@ -26,6 +26,43 @@ function Get-StateInformationRepository {
     }
 }
 
+
+function Get-JujuResource {
+    <#
+    .SYNOPSIS
+     Get-JujuResource downloads a resource. Return value is path on disk to the downloaded resource.
+    .PARAMETER Resource
+     The name of the resource you want to download.
+     .PARAMETER OutFile
+     Destination of the downloaded resource
+     .PARAMETER Force
+     Overwrite OutFile if it already exists
+    #>
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$true)]
+        [string]$Resource,
+        [Parameter(Mandatory=$false)]
+        [string]$OutFile,
+        [Parameter(Mandatory=$false)]
+        [bool]$Force=$false
+    )
+    PROCESS {
+        $cmd = @("resource-get.exe", $Resource)
+        $filePath = (Invoke-JujuCommand -Command $cmd)
+        if($OutFile) {
+            if((Test-Path $OutFile) -and !$Force) {
+                Throw "OutFile already exists"
+            }
+            rm $OutFile -Force -ErrorAction SilentlyContinue
+            Move-Item $filePath $OutFile -Force
+            $filePath = $OutFile
+        }
+        return $filePath
+    }
+}
+
+
 function Confirm-ContextComplete {
     <#
     .SYNOPSIS

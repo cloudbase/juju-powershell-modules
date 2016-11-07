@@ -89,6 +89,7 @@ FunctionsToExport = @(
     "Set-LeaderData",
     "Get-LeaderData",
     "Get-JujuVersion",
+    "Get-JujuResource",
     "Set-JujuStatus",
     "Get-JujuStatus",
     "Get-JujuAction",
