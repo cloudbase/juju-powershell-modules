@@ -191,7 +191,81 @@ Describe "Test Get-UserGroupMembership" {}
 
 Describe "Test New-LocalAdmin" {}
 
-Describe "Test Add-WindowsUser" {}
+Describe "Test Add-WindowsUser" {
+    $fakeUser = "FakeUser"
+    $fakePassword = "FakePassword"
+    $fakeFullname = "Fake full name"
+    $fakeDescription = "Fake description"
+    Mock Invoke-JujuCommand -ModuleName JujuWindowsUtils { }
+
+    Context "User already exist" {
+        Mock Get-AccountObjectByName -ModuleName JujuWindowsUtils { return $true }
+
+        It "should reset the password" {
+            Add-WindowsUser -Username $fakeUser -Password $fakePassword | Should BeNullOrEmpty
+            Assert-MockCalled Get-AccountObjectByName -ModuleName JujuWindowsUtils -Exactly 1
+            Assert-MockCalled Invoke-JujuCommand -ModuleName JujuWindowsUtils -Exactly 1 -ParameterFilter {
+                (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword)) -eq $null
+            }
+        }
+    }
+
+    Context "New user is created with both the optional parameters description and full name" {
+        Mock Get-AccountObjectByName -ModuleName JujuWindowsUtils { return $false }
+
+        It "should create a new user" {
+            Add-WindowsUser -Username $fakeUser -Password $fakePassword -Fullname $fakeFullname -Description $fakeDescription | Should BeNullOrEmpty
+            Assert-MockCalled Get-AccountObjectByName -ModuleName JujuWindowsUtils -Exactly 1
+            Assert-MockCalled Invoke-JujuCommand -ModuleName JujuWindowsUtils -Exactly 1 -ParameterFilter {
+                (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword,
+                                           "/add", ("/fullname:{0}" -f @($fakeFullname)),
+                                           ("/comment:{0}" -f @($fakeDescription)),
+                                           "/expires:never", "/active:yes")) -eq $null
+            }
+        }
+    }
+
+    Context "New user is created with only the optional parameter description" {
+        Mock Get-AccountObjectByName -ModuleName JujuWindowsUtils { return $false }
+
+        It "should create a new user" {
+            Add-WindowsUser -Username $fakeUser -Password $fakePassword -Description $fakeDescription | Should BeNullOrEmpty
+            Assert-MockCalled Get-AccountObjectByName -ModuleName JujuWindowsUtils -Exactly 1
+            Assert-MockCalled Invoke-JujuCommand -ModuleName JujuWindowsUtils -Exactly 1 -ParameterFilter {
+                (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword,
+                                           "/add", ("/comment:{0}" -f @($fakeDescription)),
+                                           "/expires:never", "/active:yes")) -eq $null
+            }
+        }
+    }
+
+    Context "New user is created with only the optional parameter full name" {
+        Mock Get-AccountObjectByName -ModuleName JujuWindowsUtils { return $false }
+
+        It "should create a new user" {
+            Add-WindowsUser -Username $fakeUser -Password $fakePassword -Fullname $fakeFullname | Should BeNullOrEmpty
+            Assert-MockCalled Get-AccountObjectByName -ModuleName JujuWindowsUtils -Exactly 1
+            Assert-MockCalled Invoke-JujuCommand -ModuleName JujuWindowsUtils -Exactly 1 -ParameterFilter {
+                (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword,
+                                           "/add", ("/fullname:{0}" -f @($fakeFullname)),
+                                           "/expires:never", "/active:yes")) -eq $null
+            }
+        }
+    }
+
+    Context "New user is created without either the optional parameters full name or description" {
+        Mock Get-AccountObjectByName -ModuleName JujuWindowsUtils { return $false }
+
+        It "should create a new user" {
+            Add-WindowsUser -Username $fakeUser -Password $fakePassword | Should BeNullOrEmpty
+            Assert-MockCalled Get-AccountObjectByName -ModuleName JujuWindowsUtils -Exactly 1
+            Assert-MockCalled Invoke-JujuCommand -ModuleName JujuWindowsUtils -Exactly 1 -ParameterFilter {
+                (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword,
+                                           "/add", "/expires:never", "/active:yes")) -eq $null
+            }
+        }
+    }
+}
 
 Describe "Test Remove-WindowsUser" {}
 
