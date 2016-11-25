@@ -765,6 +765,10 @@ function Add-WindowsUser {
     The user name of the new user
     .PARAMETER Password
     The password the user will authenticate with
+    .PARAMETER Fullname
+    The user full name. Applies only when user doesn't exist already.
+    .PARAMETER Description
+    The description for the user. Applies only when user doesn't exist already.
     .NOTES
     This commandlet creates a local user that never expires, and which is not required to reset the password on first logon.
     #>
@@ -773,7 +777,11 @@ function Add-WindowsUser {
         [parameter(Mandatory=$true)]
         [string]$Username,
         [parameter(Mandatory=$true)]
-        [string]$Password
+        [string]$Password,
+        [parameter(Mandatory=$false)]
+        [string]$Fullname,
+        [parameter(Mandatory=$false)]
+        [String]$Description
     )
     PROCESS {
         try {
@@ -784,6 +792,12 @@ function Add-WindowsUser {
         $cmd = @("net.exe", "user", $Username)
         if (!$exists) {
             $cmd += @($Password, "/add", "/expires:never", "/active:yes")
+            if($Fullname) {
+                $cmd += "/fullname:{0}" -f @($Fullname)
+            }
+            if($Description) {
+                $cmd += "/comment:{0}" -f @($Description)
+            }
         } else {
             $cmd += $Password
         }
