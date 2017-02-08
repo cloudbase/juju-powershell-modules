@@ -13,17 +13,78 @@
 #    under the License.
 #
 
+function Convert-HashtableToDictionary {
+    Param(
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [hashtable]$Data
+    )
+    $new = [System.Collections.Generic.Dictionary[string, object]](New-Object 'System.Collections.Generic.Dictionary[string, object]')
+    foreach($i in $($data.Keys)) {
+        $new[$i] = Convert-PSObjectToGenericObject $Data[$i]
+    }
+    return $new
+}
+
+function Convert-ListToGenericList {
+    Param(
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [array]$Data
+    )
+    $new = [System.Collections.Generic.List[object]](New-Object 'System.Collections.Generic.List[object]')
+    foreach($i in $Data) {
+        $val = Convert-PSObjectToGenericObject $i
+        $new.Add($val)
+    }
+    return ,$new
+}
+
+function Convert-PSCustomObjectToDictionary {
+    Param(
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [PSCustomObject]$Data
+    )
+    $ret = [System.Collections.Generic.Dictionary[string,object]](New-Object 'System.Collections.Generic.Dictionary[string,object]')
+    foreach ($i in $Data.psobject.properties) {
+        $ret[$i.Name] = Convert-PSObjectToGenericObject $i.Value
+    }
+    return $ret
+}
+
+function Convert-PSObjectToGenericObject {
+    Param(
+        [Parameter(Mandatory=$true,ValueFromPipeline=$true)]
+        [System.Object]$Data
+    )
+    # explicitly cast object to its type. Without this, it gets wrapped inside a powershell object
+    # which causes YamlDotNet to fail
+    $data = $data -as $data.GetType().FullName
+    switch($data.GetType()) {
+        ($_.FullName -eq "System.Management.Automation.PSCustomObject") {
+            return Convert-PSCustomObjectToDictionary $data
+        }
+        default {
+            if (([System.Collections.IDictionary].IsAssignableFrom($_))){
+                return Convert-HashtableToDictionary $data
+            } elseif (([System.Collections.IList].IsAssignableFrom($_))) {
+                return Convert-ListToGenericList $data
+            }
+            return $data
+        }
+    }
+}
+
 function Invoke-RenderTemplate {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [System.Collections.Generic.Dictionary[string, object]]$Context,
+        [hashtable]$Context,
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [string]$TemplateData
     )
     PROCESS {
+        $norm = Convert-PSObjectToGenericObject $Context
         $tpl = [DotLiquid.Template]::Parse($TemplateData)
-        $hash = [DotLiquid.Hash]::FromDictionary($Context)
+        $hash = [DotLiquid.Hash]::FromDictionary($norm)
         return  $tpl.Render($hash)
     }
 }
@@ -32,7 +93,7 @@ function Invoke-RenderTemplateFromFile {
     [CmdletBinding()]
     Param(
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
-        [System.Collections.Generic.Dictionary[string, object]]$Context,
+        [hashtable]$Context,
         [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
         [string]$Template
     )
