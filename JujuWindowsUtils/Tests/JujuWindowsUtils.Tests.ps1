@@ -220,7 +220,7 @@ Describe "Test Add-WindowsUser" {
                 (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword,
                                            "/add", ("/fullname:{0}" -f @($fakeFullname)),
                                            ("/comment:{0}" -f @($fakeDescription)),
-                                           "/expires:never", "/active:yes")) -eq $null
+                                           "/expires:never", "/active:yes", "/Y")) -eq $null
             }
         }
     }
@@ -234,7 +234,7 @@ Describe "Test Add-WindowsUser" {
             Assert-MockCalled Invoke-JujuCommand -ModuleName JujuWindowsUtils -Exactly 1 -ParameterFilter {
                 (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword,
                                            "/add", ("/comment:{0}" -f @($fakeDescription)),
-                                           "/expires:never", "/active:yes")) -eq $null
+                                           "/expires:never", "/active:yes", "/Y")) -eq $null
             }
         }
     }
@@ -248,7 +248,7 @@ Describe "Test Add-WindowsUser" {
             Assert-MockCalled Invoke-JujuCommand -ModuleName JujuWindowsUtils -Exactly 1 -ParameterFilter {
                 (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword,
                                            "/add", ("/fullname:{0}" -f @($fakeFullname)),
-                                           "/expires:never", "/active:yes")) -eq $null
+                                           "/expires:never", "/active:yes", "/Y")) -eq $null
             }
         }
     }
@@ -261,7 +261,7 @@ Describe "Test Add-WindowsUser" {
             Assert-MockCalled Get-AccountObjectByName -ModuleName JujuWindowsUtils -Exactly 1
             Assert-MockCalled Invoke-JujuCommand -ModuleName JujuWindowsUtils -Exactly 1 -ParameterFilter {
                 (Compare-Object $Command @("net.exe", "user", $fakeUser, $fakePassword,
-                                           "/add", "/expires:never", "/active:yes")) -eq $null
+                                           "/add", "/expires:never", "/active:yes", "/Y")) -eq $null
             }
         }
     }
